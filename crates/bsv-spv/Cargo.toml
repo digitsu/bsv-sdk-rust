@@ -1,0 +1,17 @@
+[package]
+name = "bsv-spv"
+description = "BSV Blockchain SDK - SPV verification, Merkle paths, BEEF format"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bsv-primitives = { workspace = true }
+bsv-transaction = { workspace = true }
+bsv-script = { workspace = true }
+thiserror = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]

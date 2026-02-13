@@ -1,0 +1,13 @@
+[package]
+name = "bsv-message"
+description = "BSV Blockchain SDK - BRC-78 message encryption and signing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bsv-primitives = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }
+base64 = { workspace = true }

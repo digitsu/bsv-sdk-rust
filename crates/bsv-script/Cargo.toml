@@ -1,0 +1,22 @@
+[package]
+name = "bsv-script"
+description = "BSV Blockchain SDK - Script parsing, execution, and address handling"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bsv-primitives = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+bs58 = { workspace = true }
+num-bigint = { workspace = true }
+num-traits = { workspace = true }
+num-integer = { workspace = true }
+sha2 = { workspace = true }
+ripemd = { workspace = true }
+sha1 = "0.10"
+
+[dev-dependencies]
+serde_json = { workspace = true }

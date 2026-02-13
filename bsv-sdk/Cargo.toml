@@ -1,0 +1,15 @@
+[package]
+name = "bsv-sdk"
+description = "BSV Blockchain SDK - Complete SDK re-exporting all components"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bsv-primitives = { workspace = true }
+bsv-script = { workspace = true }
+bsv-transaction = { workspace = true }
+bsv-wallet = { workspace = true }
+bsv-message = { workspace = true }
+bsv-auth = { workspace = true }
+bsv-spv = { workspace = true }

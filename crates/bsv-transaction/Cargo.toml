@@ -1,0 +1,19 @@
+[package]
+name = "bsv-transaction"
+description = "BSV Blockchain SDK - Transaction building, signing, and serialization"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bsv-primitives = { workspace = true }
+bsv-script = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true, optional = true }
+
+[features]
+default = ["network"]
+network = ["reqwest"]

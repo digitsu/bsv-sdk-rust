@@ -1,0 +1,16 @@
+[package]
+name = "bsv-wallet"
+description = "BSV Blockchain SDK - Wallet interface and key derivation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bsv-primitives = { workspace = true }
+bsv-transaction = { workspace = true }
+bsv-script = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+regex = "1"

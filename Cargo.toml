@@ -1,0 +1,62 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/bsv-primitives",
+    "crates/bsv-script",
+    "crates/bsv-transaction",
+    "crates/bsv-wallet",
+    "crates/bsv-message",
+    "crates/bsv-auth",
+    "crates/bsv-spv",
+    "bsv-sdk",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.75"
+
+[workspace.dependencies]
+# Crypto
+k256 = { version = "0.13", features = ["ecdsa", "sha256", "arithmetic"] }
+sha2 = "0.10"
+ripemd = "0.1"
+hmac = "0.12"
+aes-gcm = "0.10"
+cbc = { version = "0.1", features = ["alloc"] }
+aes = "0.8"
+pbkdf2 = { version = "0.12", features = ["simple"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+hex = "0.4"
+bs58 = "0.5"
+
+# Async
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.24"
+
+# Error handling
+thiserror = "2"
+
+# Utils
+rand = "0.8"
+zeroize = { version = "1", features = ["derive"] }
+digest = "0.10"
+generic-array = "0.14"
+num-bigint = "0.4"
+num-traits = "0.2"
+num-integer = "0.1"
+base64 = "0.22"
+reqwest = { version = "0.12", features = ["json"] }
+
+# Internal crates
+bsv-primitives = { path = "crates/bsv-primitives" }
+bsv-script = { path = "crates/bsv-script" }
+bsv-transaction = { path = "crates/bsv-transaction" }
+bsv-wallet = { path = "crates/bsv-wallet" }
+bsv-message = { path = "crates/bsv-message" }
+bsv-auth = { path = "crates/bsv-auth" }
+bsv-spv = { path = "crates/bsv-spv" }

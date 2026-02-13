@@ -1,0 +1,22 @@
+[package]
+name = "bsv-auth"
+description = "BSV Blockchain SDK - Authentication, certificates, and peer communication"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bsv-primitives = { workspace = true }
+bsv-wallet = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+base64 = { workspace = true }
+rand = { workspace = true }
+log = "0.4"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full", "test-util"] }
