@@ -1,11 +1,13 @@
-/// BSV Blockchain SDK - SPV verification.
-///
-/// Provides Simplified Payment Verification (SPV) types including
-/// Merkle paths (BUMP format), BEEF transaction containers, chain
-/// tracking traits, and broadcaster interfaces.
-///
-/// Ported from the Go BSV SDK's transaction/merklepath.go, transaction/beef.go,
-/// transaction/chaintracker/, and transaction/broadcaster.go.
+#![warn(missing_docs)]
+
+//! BSV Blockchain SDK - SPV verification.
+//!
+//! Provides Simplified Payment Verification (SPV) types including
+//! Merkle paths (BUMP format), BEEF transaction containers, chain
+//! tracking traits, and broadcaster interfaces.
+//!
+//! Ported from the Go BSV SDK's transaction/merklepath.go, transaction/beef.go,
+//! transaction/chaintracker/, and transaction/broadcaster.go.
 
 pub mod error;
 pub mod merkle_tree_parent;

@@ -1,7 +1,7 @@
-/// Elliptic curve cryptography on secp256k1.
-///
-/// Provides private keys, public keys, ECDSA signatures,
-/// key derivation (BRC-42), symmetric encryption, and Shamir secret sharing.
+//! Elliptic curve cryptography on secp256k1.
+//!
+//! Provides private keys, public keys, ECDSA signatures,
+//! key derivation (BRC-42), and symmetric encryption.
 
 pub mod private_key;
 pub mod public_key;

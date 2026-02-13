@@ -1,7 +1,9 @@
-/// BSV Blockchain SDK - Wallet interface and key derivation.
-///
-/// Defines the 29-method Wallet trait, key derivation (BRC-42),
-/// proto-wallet implementation, and wire protocol serialization.
+#![warn(missing_docs)]
+
+//! BSV Blockchain SDK - Wallet interface and key derivation.
+//!
+//! Defines the 29-method Wallet trait, key derivation (BRC-42),
+//! proto-wallet implementation, and wire protocol serialization.
 
 mod error;
 pub use error::WalletError;

@@ -1,7 +1,9 @@
-/// BSV Blockchain SDK - Transaction building, signing, and serialization.
-///
-/// Provides the Transaction type with inputs, outputs, fee calculation,
-/// signature hash computation, and binary/hex serialization.
+#![warn(missing_docs)]
+
+//! BSV Blockchain SDK - Transaction building, signing, and serialization.
+//!
+//! Provides the Transaction type with inputs, outputs, fee calculation,
+//! signature hash computation, and binary/hex serialization.
 
 pub mod transaction;
 pub mod input;

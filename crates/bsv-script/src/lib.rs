@@ -1,7 +1,9 @@
-/// BSV Blockchain SDK - Script parsing, execution, and address handling.
-///
-/// Provides the Bitcoin Script type, opcode definitions, script chunk parsing,
-/// address generation/validation, and a full script interpreter engine.
+#![warn(missing_docs)]
+
+//! BSV Blockchain SDK - Script parsing, execution, and address handling.
+//!
+//! Provides the Bitcoin Script type, opcode definitions, script chunk parsing,
+//! address generation/validation, and a full script interpreter engine.
 
 pub mod script;
 pub mod opcodes;

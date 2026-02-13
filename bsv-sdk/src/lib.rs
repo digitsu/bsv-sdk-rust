@@ -1,6 +1,8 @@
-/// BSV Blockchain SDK - Complete SDK.
-///
-/// Re-exports all BSV SDK components for convenient single-crate usage.
+#![deny(missing_docs)]
+
+//! BSV Blockchain SDK - Complete SDK.
+//!
+//! Re-exports all BSV SDK components for convenient single-crate usage.
 
 pub use bsv_primitives as primitives;
 pub use bsv_script as script;
