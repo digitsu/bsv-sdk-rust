@@ -18,9 +18,20 @@ static RE_ONLY_LETTERS_NUMBERS_SPACES: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^[a-z0-9 ]+$").unwrap());
 
 /// Derives various key types from a root private key using BRC-42/43.
+///
+/// The root key material is zeroized when this value is dropped.
 #[derive(Clone, Debug)]
 pub struct KeyDeriver {
     root_key: PrivateKey,
+}
+
+impl Drop for KeyDeriver {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        let mut bytes = self.root_key.to_bytes();
+        bytes.zeroize();
+        // The inner PrivateKey's own Drop will also fire.
+    }
 }
 
 impl KeyDeriver {

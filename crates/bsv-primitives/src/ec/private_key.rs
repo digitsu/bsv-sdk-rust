@@ -290,6 +290,16 @@ impl PrivateKey {
     }
 }
 
+impl Drop for PrivateKey {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        // Overwrite the signing key's memory with zeros.
+        // SigningKey stores the scalar internally; we zeroize via its bytes representation.
+        let mut bytes = self.inner.to_bytes();
+        bytes.zeroize();
+    }
+}
+
 impl PartialEq for PrivateKey {
     fn eq(&self, other: &Self) -> bool {
         self.to_bytes() == other.to_bytes()

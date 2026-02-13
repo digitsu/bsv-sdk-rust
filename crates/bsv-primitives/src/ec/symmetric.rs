@@ -23,9 +23,11 @@ const TAG_LEN: usize = 16;
 ///
 /// Provides AES-256-GCM authenticated encryption and decryption using a
 /// 32-byte key. The encryption format is: IV (32 bytes) || ciphertext || tag (16 bytes).
+///
+/// The key material is automatically zeroized when this value is dropped.
 pub struct SymmetricKey {
-    /// The 32-byte AES key.
-    key: [u8; 32],
+    /// The 32-byte AES key (zeroized on drop).
+    key: zeroize::Zeroizing<[u8; 32]>,
 }
 
 impl SymmetricKey {
@@ -47,7 +49,7 @@ impl SymmetricKey {
         } else {
             padded.copy_from_slice(&key[..32]);
         }
-        SymmetricKey { key: padded }
+        SymmetricKey { key: zeroize::Zeroizing::new(padded) }
     }
 
     /// Generate a random 32-byte symmetric key.
@@ -57,7 +59,7 @@ impl SymmetricKey {
     pub fn new_random() -> Self {
         let mut key = [0u8; 32];
         rand::rngs::OsRng.fill_bytes(&mut key);
-        SymmetricKey { key }
+        SymmetricKey { key: zeroize::Zeroizing::new(key) }
     }
 
     /// Create a SymmetricKey from a Base64-encoded string.
@@ -102,7 +104,7 @@ impl SymmetricKey {
         plaintext: &[u8],
         iv: &[u8; IV_LEN],
     ) -> Result<Vec<u8>, PrimitivesError> {
-        let cipher = AesGcm::<Aes256, U32>::new(GenericArray::from_slice(&self.key));
+        let cipher = AesGcm::<Aes256, U32>::new(GenericArray::from_slice(self.key.as_ref()));
         let nonce = GenericArray::from_slice(iv);
 
         let mut buffer = plaintext.to_vec();
@@ -138,7 +140,7 @@ impl SymmetricKey {
         let ciphertext = &message[IV_LEN..message.len() - TAG_LEN];
         let tag = &message[message.len() - TAG_LEN..];
 
-        let cipher = AesGcm::<Aes256, U32>::new(GenericArray::from_slice(&self.key));
+        let cipher = AesGcm::<Aes256, U32>::new(GenericArray::from_slice(self.key.as_ref()));
         let nonce = GenericArray::from_slice(iv);
         let tag = GenericArray::from_slice(tag);
 
@@ -183,7 +185,7 @@ impl SymmetricKey {
     /// # Returns
     /// A reference to the 32-byte key.
     pub fn to_bytes(&self) -> &[u8; 32] {
-        &self.key
+        &*self.key
     }
 }
 
