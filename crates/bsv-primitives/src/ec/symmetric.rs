@@ -4,6 +4,11 @@
 //! authenticated encryption/decryption. Uses AES-256-GCM with a 32-byte
 //! initialization vector.
 
+use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit};
+use aes_gcm::aead::generic_array::typenum::U32;
+use aes_gcm::aead::generic_array::GenericArray;
+use aes_gcm::AesGcm;
+use aes::Aes256;
 use rand::RngCore;
 
 use crate::PrimitivesError;
@@ -90,40 +95,26 @@ impl SymmetricKey {
 
     /// Encrypt a plaintext message using AES-256-GCM with a specified IV.
     ///
-    /// The Go SDK uses a 32-byte IV but AES-GCM standard uses 12-byte nonce.
-    /// The Go SDK's custom AES-GCM implementation uses the full 32 bytes.
-    /// We truncate to the standard 12-byte nonce but store the full 32-byte IV
-    /// in the output for compatibility.
-    ///
-    /// # Arguments
-    /// * `plaintext` - The data to encrypt.
-    /// * `iv` - A 32-byte initialization vector.
-    ///
-    /// # Returns
-    /// `Ok(Vec<u8>)` containing IV || ciphertext || tag, or an error.
+    /// The Go SDK uses a 32-byte IV with a custom GCM implementation.
+    /// We use `AesGcm<Aes256, U32>` to support the full 32-byte nonce.
     fn encrypt_with_iv(
         &self,
         plaintext: &[u8],
         iv: &[u8; IV_LEN],
     ) -> Result<Vec<u8>, PrimitivesError> {
-        // Use the Go SDK's custom AES-GCM approach with 32-byte IV
-        // The Go SDK uses a custom aesgcm package. Standard AES-GCM uses 12-byte nonce.
-        // For compatibility, we use a custom GCM approach matching the Go SDK.
-        let cipher = aes::Aes256::new_from_slice(&self.key)
+        let cipher = AesGcm::<Aes256, U32>::new(GenericArray::from_slice(&self.key));
+        let nonce = GenericArray::from_slice(iv);
+
+        let mut buffer = plaintext.to_vec();
+        let tag = cipher
+            .encrypt_in_place_detached(nonce, &[], &mut buffer)
             .map_err(|e| PrimitivesError::EncryptionError(e.to_string()))?;
 
-        let ciphertext_and_tag =
-            aes_gcm_encrypt_custom(&cipher, iv, plaintext, &[])
-                .map_err(|e| PrimitivesError::EncryptionError(e))?;
-
         // Output: IV || ciphertext || tag
-        let ciphertext = &ciphertext_and_tag[..ciphertext_and_tag.len() - TAG_LEN];
-        let tag = &ciphertext_and_tag[ciphertext_and_tag.len() - TAG_LEN..];
-
-        let mut result = Vec::with_capacity(IV_LEN + ciphertext.len() + TAG_LEN);
+        let mut result = Vec::with_capacity(IV_LEN + buffer.len() + TAG_LEN);
         result.extend_from_slice(iv);
-        result.extend_from_slice(ciphertext);
-        result.extend_from_slice(tag);
+        result.extend_from_slice(&buffer);
+        result.extend_from_slice(&tag);
         Ok(result)
     }
 
@@ -147,16 +138,16 @@ impl SymmetricKey {
         let ciphertext = &message[IV_LEN..message.len() - TAG_LEN];
         let tag = &message[message.len() - TAG_LEN..];
 
-        let cipher = aes::Aes256::new_from_slice(&self.key)
+        let cipher = AesGcm::<Aes256, U32>::new(GenericArray::from_slice(&self.key));
+        let nonce = GenericArray::from_slice(iv);
+        let tag = GenericArray::from_slice(tag);
+
+        let mut buffer = ciphertext.to_vec();
+        cipher
+            .decrypt_in_place_detached(nonce, &[], &mut buffer, tag)
             .map_err(|e| PrimitivesError::DecryptionError(e.to_string()))?;
 
-        // Combine ciphertext and tag for the custom GCM decrypt
-        let mut ct_with_tag = Vec::with_capacity(ciphertext.len() + TAG_LEN);
-        ct_with_tag.extend_from_slice(ciphertext);
-        ct_with_tag.extend_from_slice(tag);
-
-        aes_gcm_decrypt_custom(&cipher, iv, &ct_with_tag, &[])
-            .map_err(|e| PrimitivesError::DecryptionError(e))
+        Ok(buffer)
     }
 
     /// Encrypt a string message.
@@ -195,270 +186,6 @@ impl SymmetricKey {
         &self.key
     }
 }
-
-/// Custom AES-GCM encryption matching the Go SDK's aesgcm package.
-///
-/// The Go SDK uses a custom GHASH/GCM implementation that supports arbitrary IV lengths.
-/// Standard AES-GCM uses a 12-byte nonce. This implementation uses the GHASH-based
-/// approach for IV lengths != 12 to be compatible with Go.
-///
-/// # Arguments
-/// * `cipher` - The AES-256 block cipher.
-/// * `iv` - The initialization vector (32 bytes in Go SDK).
-/// * `plaintext` - The data to encrypt.
-/// * `aad` - Additional authenticated data (typically empty).
-///
-/// # Returns
-/// `Ok(Vec<u8>)` containing ciphertext || 16-byte tag, or an error string.
-fn aes_gcm_encrypt_custom(
-    cipher: &aes::Aes256,
-    iv: &[u8],
-    plaintext: &[u8],
-    aad: &[u8],
-) -> Result<Vec<u8>, String> {
-    use aes::cipher::{BlockEncrypt, generic_array::GenericArray};
-
-    // Compute H = AES_K(0^128)
-    let mut h_block = GenericArray::default();
-    cipher.encrypt_block(&mut h_block);
-    let h = h_block.into();
-
-    // Compute J0 from IV using GHASH if IV length != 12
-    let j0 = if iv.len() == 12 {
-        let mut j = [0u8; 16];
-        j[..12].copy_from_slice(iv);
-        j[15] = 1;
-        j
-    } else {
-        ghash_iv(&h, iv)
-    };
-
-    // Encrypt plaintext using CTR mode starting from J0 + 1
-    let mut counter = j0;
-    inc32(&mut counter);
-
-    let mut ciphertext = Vec::with_capacity(plaintext.len());
-    let blocks = (plaintext.len() + 15) / 16;
-    for i in 0..blocks {
-        let start = i * 16;
-        let end = std::cmp::min(start + 16, plaintext.len());
-        let mut block = GenericArray::clone_from_slice(&counter);
-        cipher.encrypt_block(&mut block);
-        for j in 0..(end - start) {
-            ciphertext.push(plaintext[start + j] ^ block[j]);
-        }
-        inc32(&mut counter);
-    }
-
-    // Compute tag = GHASH(H, AAD, C) XOR E(K, J0)
-    let tag_hash = ghash_compute(&h, aad, &ciphertext);
-    let mut j0_block = GenericArray::clone_from_slice(&j0);
-    cipher.encrypt_block(&mut j0_block);
-    let mut tag = [0u8; 16];
-    for i in 0..16 {
-        tag[i] = tag_hash[i] ^ j0_block[i];
-    }
-
-    let mut result = ciphertext;
-    result.extend_from_slice(&tag);
-    Ok(result)
-}
-
-/// Custom AES-GCM decryption matching the Go SDK's aesgcm package.
-///
-/// # Arguments
-/// * `cipher` - The AES-256 block cipher.
-/// * `iv` - The initialization vector.
-/// * `ciphertext_with_tag` - The ciphertext followed by the 16-byte authentication tag.
-/// * `aad` - Additional authenticated data.
-///
-/// # Returns
-/// `Ok(Vec<u8>)` containing the plaintext, or an error if authentication fails.
-fn aes_gcm_decrypt_custom(
-    cipher: &aes::Aes256,
-    iv: &[u8],
-    ciphertext_with_tag: &[u8],
-    aad: &[u8],
-) -> Result<Vec<u8>, String> {
-    use aes::cipher::{BlockEncrypt, generic_array::GenericArray};
-
-    if ciphertext_with_tag.len() < TAG_LEN {
-        return Err("ciphertext too short".to_string());
-    }
-
-    let ct_len = ciphertext_with_tag.len() - TAG_LEN;
-    let ciphertext = &ciphertext_with_tag[..ct_len];
-    let tag = &ciphertext_with_tag[ct_len..];
-
-    // Compute H = AES_K(0^128)
-    let mut h_block = GenericArray::default();
-    cipher.encrypt_block(&mut h_block);
-    let h = h_block.into();
-
-    // Compute J0
-    let j0 = if iv.len() == 12 {
-        let mut j = [0u8; 16];
-        j[..12].copy_from_slice(iv);
-        j[15] = 1;
-        j
-    } else {
-        ghash_iv(&h, iv)
-    };
-
-    // Verify tag
-    let tag_hash = ghash_compute(&h, aad, ciphertext);
-    let mut j0_block = GenericArray::clone_from_slice(&j0);
-    cipher.encrypt_block(&mut j0_block);
-    let mut expected_tag = [0u8; 16];
-    for i in 0..16 {
-        expected_tag[i] = tag_hash[i] ^ j0_block[i];
-    }
-
-    if !constant_time_eq(tag, &expected_tag) {
-        return Err("authentication failed".to_string());
-    }
-
-    // Decrypt using CTR mode
-    let mut counter = j0;
-    inc32(&mut counter);
-
-    let mut plaintext = Vec::with_capacity(ciphertext.len());
-    let blocks = (ciphertext.len() + 15) / 16;
-    for i in 0..blocks {
-        let start = i * 16;
-        let end = std::cmp::min(start + 16, ciphertext.len());
-        let mut block = GenericArray::clone_from_slice(&counter);
-        cipher.encrypt_block(&mut block);
-        for j in 0..(end - start) {
-            plaintext.push(ciphertext[start + j] ^ block[j]);
-        }
-        inc32(&mut counter);
-    }
-
-    Ok(plaintext)
-}
-
-/// Increment the rightmost 32 bits of a 16-byte counter (big-endian).
-fn inc32(counter: &mut [u8; 16]) {
-    for i in (12..16).rev() {
-        counter[i] = counter[i].wrapping_add(1);
-        if counter[i] != 0 {
-            break;
-        }
-    }
-}
-
-/// Compute GHASH for a non-standard IV length.
-///
-/// GHASH(H, {}, IV) || len64(IV)
-fn ghash_iv(h: &[u8; 16], iv: &[u8]) -> [u8; 16] {
-    let mut state = [0u8; 16];
-
-    // Process IV in 16-byte blocks
-    let blocks = (iv.len() + 15) / 16;
-    for i in 0..blocks {
-        let start = i * 16;
-        let end = std::cmp::min(start + 16, iv.len());
-        let mut block = [0u8; 16];
-        block[..end - start].copy_from_slice(&iv[start..end]);
-        xor_block(&mut state, &block);
-        gf_mul(&mut state, h);
-    }
-
-    // Append bit length of IV (64-bit big-endian)
-    let mut len_block = [0u8; 16];
-    let bit_len = (iv.len() as u64) * 8;
-    len_block[8..16].copy_from_slice(&bit_len.to_be_bytes());
-    xor_block(&mut state, &len_block);
-    gf_mul(&mut state, h);
-
-    state
-}
-
-/// Compute GHASH(H, AAD, ciphertext) for authentication.
-fn ghash_compute(h: &[u8; 16], aad: &[u8], ciphertext: &[u8]) -> [u8; 16] {
-    let mut state = [0u8; 16];
-
-    // Process AAD
-    let aad_blocks = (aad.len() + 15) / 16;
-    for i in 0..aad_blocks {
-        let start = i * 16;
-        let end = std::cmp::min(start + 16, aad.len());
-        let mut block = [0u8; 16];
-        block[..end - start].copy_from_slice(&aad[start..end]);
-        xor_block(&mut state, &block);
-        gf_mul(&mut state, h);
-    }
-
-    // Process ciphertext
-    let ct_blocks = (ciphertext.len() + 15) / 16;
-    for i in 0..ct_blocks {
-        let start = i * 16;
-        let end = std::cmp::min(start + 16, ciphertext.len());
-        let mut block = [0u8; 16];
-        block[..end - start].copy_from_slice(&ciphertext[start..end]);
-        xor_block(&mut state, &block);
-        gf_mul(&mut state, h);
-    }
-
-    // Append lengths (AAD bit length || ciphertext bit length)
-    let mut len_block = [0u8; 16];
-    let aad_bit_len = (aad.len() as u64) * 8;
-    let ct_bit_len = (ciphertext.len() as u64) * 8;
-    len_block[..8].copy_from_slice(&aad_bit_len.to_be_bytes());
-    len_block[8..16].copy_from_slice(&ct_bit_len.to_be_bytes());
-    xor_block(&mut state, &len_block);
-    gf_mul(&mut state, h);
-
-    state
-}
-
-/// XOR a 16-byte block into the state.
-fn xor_block(state: &mut [u8; 16], block: &[u8; 16]) {
-    for i in 0..16 {
-        state[i] ^= block[i];
-    }
-}
-
-/// GF(2^128) multiplication used in GHASH.
-///
-/// Multiplies x by y in GF(2^128) using the GCM reduction polynomial.
-fn gf_mul(x: &mut [u8; 16], y: &[u8; 16]) {
-    let mut z = [0u8; 16];
-    let mut v = [0u8; 16];
-    v.copy_from_slice(y);
-
-    for i in 0..128 {
-        if x[i / 8] & (1 << (7 - (i % 8))) != 0 {
-            xor_block(&mut z, &v);
-        }
-        let lsb = v[15] & 1;
-        // Right shift v by 1
-        for j in (1..16).rev() {
-            v[j] = (v[j] >> 1) | (v[j - 1] << 7);
-        }
-        v[0] >>= 1;
-        if lsb == 1 {
-            v[0] ^= 0xe1; // GCM reduction polynomial
-        }
-    }
-
-    x.copy_from_slice(&z);
-}
-
-/// Constant-time comparison of two byte slices.
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    let mut diff = 0u8;
-    for i in 0..a.len() {
-        diff |= a[i] ^ b[i];
-    }
-    diff == 0
-}
-
-use aes::cipher::KeyInit as _;
 
 #[cfg(test)]
 mod tests {
