@@ -72,4 +72,7 @@ pub enum AuthError {
 
     #[error("json error: {0}")]
     Json(#[from] serde_json::Error),
+
+    #[error("internal lock error: {0}")]
+    LockError(String),
 }
