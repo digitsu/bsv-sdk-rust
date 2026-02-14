@@ -20,3 +20,6 @@ reqwest = { workspace = true, optional = true }
 [features]
 default = ["network"]
 network = ["reqwest"]
+
+[dev-dependencies]
+proptest = "1"

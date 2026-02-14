@@ -73,7 +73,7 @@ impl SymmetricKey {
         use base64::Engine;
         let bytes = base64::engine::general_purpose::STANDARD
             .decode(b64)
-            .map_err(|e| PrimitivesError::EncryptionError(e.to_string()))?;
+            .map_err(|e| PrimitivesError::Other(e.to_string()))?;
         Ok(Self::new(&bytes))
     }
 
@@ -110,7 +110,7 @@ impl SymmetricKey {
         let mut buffer = plaintext.to_vec();
         let tag = cipher
             .encrypt_in_place_detached(nonce, &[], &mut buffer)
-            .map_err(|e| PrimitivesError::EncryptionError(e.to_string()))?;
+            .map_err(|_| PrimitivesError::Aead)?;
 
         // Output: IV || ciphertext || tag
         let mut result = Vec::with_capacity(IV_LEN + buffer.len() + TAG_LEN);
@@ -147,7 +147,7 @@ impl SymmetricKey {
         let mut buffer = ciphertext.to_vec();
         cipher
             .decrypt_in_place_detached(nonce, &[], &mut buffer, tag)
-            .map_err(|e| PrimitivesError::DecryptionError(e.to_string()))?;
+            .map_err(|_| PrimitivesError::Aead)?;
 
         Ok(buffer)
     }

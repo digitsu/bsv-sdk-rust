@@ -81,13 +81,29 @@ pub enum PrimitivesError {
     #[error("unexpected end of data")]
     UnexpectedEof,
 
+    /// Hex decoding error.
+    #[error("hex decode error: {0}")]
+    HexDecode(#[from] hex::FromHexError),
+
+    /// Elliptic curve error (from k256).
+    #[error("elliptic curve error: {0}")]
+    EllipticCurve(#[from] k256::elliptic_curve::Error),
+
+    /// ECDSA signature error (from k256/signature).
+    #[error("ecdsa error: {0}")]
+    Ecdsa(#[from] k256::ecdsa::signature::Error),
+
+    /// AEAD (AES-GCM) error.
+    #[error("aead error")]
+    Aead,
+
     /// Catch-all error.
     #[error("{0}")]
     Other(String),
 }
 
-impl From<hex::FromHexError> for PrimitivesError {
-    fn from(e: hex::FromHexError) -> Self {
-        PrimitivesError::InvalidHex(e.to_string())
+impl From<aes_gcm::Error> for PrimitivesError {
+    fn from(_: aes_gcm::Error) -> Self {
+        PrimitivesError::Aead
     }
 }

@@ -283,7 +283,7 @@ impl Signature {
 
         let (k256_sig, _recovery_id) = signing_key
             .sign_prehash_recoverable(&padded)
-            .map_err(|e| PrimitivesError::InvalidSignature(e.to_string()))?;
+            ?;
 
         let (r_bytes, s_bytes) = k256_sig.split_bytes();
         let mut r = [0u8; 32];
@@ -352,12 +352,12 @@ impl Signature {
             *k256::FieldBytes::from_slice(&compact_sig[1..33]),
             *k256::FieldBytes::from_slice(&compact_sig[33..65]),
         )
-        .map_err(|e| PrimitivesError::InvalidSignature(e.to_string()))?;
+        ?;
 
         let padded = Self::normalize_hash(hash);
         let recovered_key =
             VerifyingKey::recover_from_prehash(&padded, &k256_sig, recovery_id)
-                .map_err(|e| PrimitivesError::InvalidSignature(e.to_string()))?;
+                ?;
 
         PublicKey::from_bytes(
             recovered_key

@@ -61,9 +61,7 @@ impl PrivateKey {
                 bytes.len()
             )));
         }
-        let signing_key = SigningKey::from_bytes(bytes.into()).map_err(|e| {
-            PrimitivesError::InvalidPrivateKey(e.to_string())
-        })?;
+        let signing_key = SigningKey::from_bytes(bytes.into())?;
         Ok(PrivateKey {
             inner: signing_key,
         })
@@ -83,7 +81,7 @@ impl PrivateKey {
             ));
         }
         let bytes =
-            hex::decode(hex_str).map_err(|e| PrimitivesError::InvalidHex(e.to_string()))?;
+            hex::decode(hex_str)?;
         Self::from_bytes(&bytes)
     }
 

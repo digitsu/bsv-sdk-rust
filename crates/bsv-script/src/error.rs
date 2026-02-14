@@ -40,6 +40,10 @@ pub enum ScriptError {
     #[error("invalid hex: {0}")]
     InvalidHex(String),
 
+    /// Hex decoding error.
+    #[error("hex decode error: {0}")]
+    HexDecode(#[from] hex::FromHexError),
+
     /// Script is empty when a non-empty script was expected.
     #[error("script is empty")]
     EmptyScript,

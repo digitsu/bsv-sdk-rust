@@ -46,8 +46,7 @@ impl PublicKey {
                 "pubkey string is empty".to_string(),
             ));
         }
-        let vk = VerifyingKey::from_sec1_bytes(bytes)
-            .map_err(|e| PrimitivesError::InvalidPublicKey(e.to_string()))?;
+        let vk = VerifyingKey::from_sec1_bytes(bytes)?;
         Ok(PublicKey { inner: vk })
     }
 
@@ -60,7 +59,7 @@ impl PublicKey {
     /// `Ok(PublicKey)` on success, or an error if the hex or point is invalid.
     pub fn from_hex(hex_str: &str) -> Result<Self, PrimitivesError> {
         let bytes =
-            hex::decode(hex_str).map_err(|e| PrimitivesError::InvalidHex(e.to_string()))?;
+            hex::decode(hex_str)?;
         Self::from_bytes(&bytes)
     }
 

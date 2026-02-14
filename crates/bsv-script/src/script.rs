@@ -36,7 +36,7 @@ impl Script {
     /// A `Script` wrapping the decoded bytes, or an error if the hex is invalid.
     pub fn from_hex(hex_str: &str) -> Result<Self, ScriptError> {
         let bytes = hex::decode(hex_str)
-            .map_err(|e| ScriptError::InvalidHex(e.to_string()))?;
+            ?;
         Ok(Script(bytes))
     }
 

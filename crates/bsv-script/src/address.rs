@@ -121,7 +121,7 @@ impl Address {
     /// A mainnet `Address`, or an error if the hex is invalid.
     pub fn from_public_key_string(pub_key_hex: &str, mainnet: bool) -> Result<Self, ScriptError> {
         let pub_key_bytes = hex::decode(pub_key_hex)
-            .map_err(|e| ScriptError::InvalidHex(e.to_string()))?;
+            ?;
         let h = hash160(&pub_key_bytes);
         let network = if mainnet { Network::Mainnet } else { Network::Testnet };
         Ok(Self::from_public_key_hash(&h, network))
