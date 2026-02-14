@@ -31,6 +31,11 @@ pub mod parsed_opcode;
 pub mod scriptnum;
 pub mod stack;
 pub mod thread;
+mod ops_arithmetic;
+mod ops_crypto;
+mod ops_data;
+mod ops_flow;
+mod ops_stack;
 
 pub use config::Config;
 pub use error::{InterpreterError, InterpreterErrorCode};
