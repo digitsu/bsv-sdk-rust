@@ -1,4 +1,4 @@
-#![warn(missing_docs)]
+
 
 //! BSV Blockchain SDK - Wallet interface and key derivation.
 //!

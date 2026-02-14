@@ -4,6 +4,9 @@ description = "BSV Blockchain SDK - SPV verification, Merkle paths, BEEF format"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["bitcoin", "bsv", "spv", "merkle"]
+categories = ["cryptography"]
 
 [dependencies]
 bsv-primitives = { workspace = true }

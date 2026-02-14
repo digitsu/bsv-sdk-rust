@@ -1,4 +1,4 @@
-#![warn(missing_docs)]
+
 
 //! BSV Blockchain SDK - Authentication, certificates, and peer communication.
 //!

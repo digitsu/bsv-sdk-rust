@@ -24,8 +24,11 @@ pub type OnCertificateRequestCallback = Box<
     dyn Fn(&PublicKey, &RequestedCertificateSet) -> Result<(), AuthError> + Send + Sync,
 >;
 
+/// Callback type for initial response handling.
+type InitialResponseFn = Box<dyn Fn(&str) -> Result<(), AuthError> + Send + Sync>;
+
 struct InitialResponseCallback {
-    callback: Box<dyn Fn(&str) -> Result<(), AuthError> + Send + Sync>,
+    callback: InitialResponseFn,
     session_nonce: String,
 }
 
@@ -774,9 +777,9 @@ impl Peer {
         for cert in &message.certificates {
             // Verify subject matches sender
             if cert.certificate.subject != message.identity_key {
-                return Err(AuthError::CertificateValidation(format!(
-                    "certificate subject does not match sender identity key"
-                )));
+                return Err(AuthError::CertificateValidation(
+                    "certificate subject does not match sender identity key".to_string(),
+                ));
             }
 
             // Verify signature

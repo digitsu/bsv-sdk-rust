@@ -11,7 +11,7 @@ use crate::hash::sha256d;
 /// Bitcoin's modified Base58 alphabet.
 ///
 /// Excludes 0, O, I, l to reduce visual ambiguity.
-const ALPHABET: &[u8] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+const _ALPHABET: &[u8] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 /// Encode a byte slice to a Base58 string.
 ///

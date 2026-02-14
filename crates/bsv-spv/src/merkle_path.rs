@@ -233,7 +233,7 @@ impl MerklePath {
         // Find the leaf matching this txid
         let tx_leaf = self.path[0]
             .iter()
-            .find(|l| l.hash.as_ref().map_or(false, |h| *h == txid))
+            .find(|l| l.hash.as_ref().is_some_and(|h| *h == txid))
             .ok_or_else(|| {
                 SpvError::InvalidMerklePath(format!(
                     "the BUMP does not contain the txid: {}",

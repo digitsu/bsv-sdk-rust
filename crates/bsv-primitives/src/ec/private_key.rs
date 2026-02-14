@@ -290,6 +290,12 @@ impl PrivateKey {
     }
 }
 
+impl Default for PrivateKey {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Drop for PrivateKey {
     fn drop(&mut self) {
         use zeroize::Zeroize;

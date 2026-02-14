@@ -4,6 +4,9 @@ description = "BSV Blockchain SDK - BRC-78 message encryption and signing"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["bitcoin", "bsv", "encryption", "messaging"]
+categories = ["cryptography"]
 
 [dependencies]
 bsv-primitives = { workspace = true }

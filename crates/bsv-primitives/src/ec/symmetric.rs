@@ -4,7 +4,7 @@
 //! authenticated encryption/decryption. Uses AES-256-GCM with a 32-byte
 //! initialization vector.
 
-use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit};
+use aes_gcm::{AeadInPlace, KeyInit};
 use aes_gcm::aead::generic_array::typenum::U32;
 use aes_gcm::aead::generic_array::GenericArray;
 use aes_gcm::AesGcm;
@@ -185,7 +185,7 @@ impl SymmetricKey {
     /// # Returns
     /// A reference to the 32-byte key.
     pub fn to_bytes(&self) -> &[u8; 32] {
-        &*self.key
+        &self.key
     }
 }
 

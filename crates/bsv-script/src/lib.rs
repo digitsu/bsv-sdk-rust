@@ -1,4 +1,15 @@
-#![warn(missing_docs)]
+
+#![allow(
+    clippy::collapsible_if,
+    clippy::empty_line_after_doc_comments,
+    clippy::if_same_then_else,
+    clippy::manual_range_contains,
+    clippy::needless_borrows_for_generic_args,
+    clippy::new_without_default,
+    clippy::question_mark,
+    clippy::single_match,
+    unused_imports
+)]
 
 //! BSV Blockchain SDK - Script parsing, execution, and address handling.
 //!

@@ -171,13 +171,14 @@ impl TransactionInput {
         writer.write_bytes(&self.source_txid);
         writer.write_u32_le(self.source_tx_out_index);
 
-        if clear || self.unlocking_script.is_none() {
+        if clear {
             writer.write_varint(VarInt::from(0u64));
-        } else {
-            let script = self.unlocking_script.as_ref().unwrap();
+        } else if let Some(script) = self.unlocking_script.as_ref() {
             let script_bytes = script.to_bytes();
             writer.write_varint(VarInt::from(script_bytes.len()));
             writer.write_bytes(script_bytes);
+        } else {
+            writer.write_varint(VarInt::from(0u64));
         }
 
         writer.write_u32_le(self.sequence_number);

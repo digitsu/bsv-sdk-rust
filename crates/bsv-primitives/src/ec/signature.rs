@@ -360,10 +360,9 @@ impl Signature {
                 .map_err(|e| PrimitivesError::InvalidSignature(e.to_string()))?;
 
         PublicKey::from_bytes(
-            &recovered_key
+            recovered_key
                 .to_encoded_point(false)
-                .as_bytes()
-                .to_vec(),
+                .as_bytes(),
         )
     }
 }

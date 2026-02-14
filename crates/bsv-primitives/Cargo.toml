@@ -4,6 +4,9 @@ description = "BSV Blockchain SDK - Cryptographic primitives, hashing, and utili
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["bitcoin", "bsv", "crypto", "primitives"]
+categories = ["cryptography"]
 
 [dependencies]
 k256 = { workspace = true }

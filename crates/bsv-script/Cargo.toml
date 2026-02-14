@@ -4,6 +4,9 @@ description = "BSV Blockchain SDK - Script parsing, execution, and address handl
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["bitcoin", "bsv", "script", "blockchain"]
+categories = ["cryptography"]
 
 [dependencies]
 bsv-primitives = { workspace = true }

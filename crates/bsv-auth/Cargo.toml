@@ -4,6 +4,9 @@ description = "BSV Blockchain SDK - Authentication, certificates, and peer commu
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["bitcoin", "bsv", "authentication", "certificates"]
+categories = ["cryptography", "authentication"]
 
 [dependencies]
 bsv-primitives = { workspace = true }

@@ -77,7 +77,7 @@ impl Hash {
         }
 
         // Pad to even length if needed.
-        let padded = if hex_str.len() % 2 != 0 {
+        let padded = if !hex_str.len().is_multiple_of(2) {
             format!("0{}", hex_str)
         } else {
             hex_str.to_string()

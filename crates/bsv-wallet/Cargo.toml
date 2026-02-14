@@ -4,6 +4,9 @@ description = "BSV Blockchain SDK - Wallet interface and key derivation"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["bitcoin", "bsv", "wallet", "blockchain"]
+categories = ["cryptography"]
 
 [dependencies]
 bsv-primitives = { workspace = true }

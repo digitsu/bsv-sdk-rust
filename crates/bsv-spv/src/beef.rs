@@ -391,16 +391,16 @@ impl Beef {
         let mut proven: HashMap<Hash, bool> = HashMap::new();
 
         for (txid, beef_tx) in &self.transactions {
-            if beef_tx.data_format == DataFormat::RawTxAndBumpIndex {
-                if beef_tx.bump_index < self.bumps.len() {
-                    let bump = &self.bumps[beef_tx.bump_index];
-                    if !bump.path.is_empty() {
-                        for leaf in &bump.path[0] {
-                            if let Some(ref h) = leaf.hash {
-                                if h == txid {
-                                    proven.insert(*txid, true);
-                                    break;
-                                }
+            if beef_tx.data_format == DataFormat::RawTxAndBumpIndex
+                && beef_tx.bump_index < self.bumps.len()
+            {
+                let bump = &self.bumps[beef_tx.bump_index];
+                if !bump.path.is_empty() {
+                    for leaf in &bump.path[0] {
+                        if let Some(ref h) = leaf.hash {
+                            if h == txid {
+                                proven.insert(*txid, true);
+                                break;
                             }
                         }
                     }

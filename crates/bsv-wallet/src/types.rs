@@ -19,18 +19,13 @@ pub struct Protocol {
 }
 
 /// The type of counterparty in a cryptographic operation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum CounterpartyType {
+    #[default]
     Uninitialized,
     Anyone,
     Self_,
     Other,
-}
-
-impl Default for CounterpartyType {
-    fn default() -> Self {
-        CounterpartyType::Uninitialized
-    }
 }
 
 /// Counterparty in a cryptographic operation.
