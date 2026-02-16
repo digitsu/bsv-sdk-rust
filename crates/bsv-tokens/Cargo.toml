@@ -16,4 +16,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 hex = { workspace = true }
 
+[features]
+bundle = []
+
 [dev-dependencies]

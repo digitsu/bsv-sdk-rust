@@ -4,6 +4,8 @@
 //! Provides types and utilities for creating, transferring, and managing
 //! tokens on the BSV blockchain using the STAS and dSTAS protocols.
 
+#[cfg(feature = "bundle")]
+pub mod bundle;
 pub mod error;
 pub mod factory;
 pub mod scheme;

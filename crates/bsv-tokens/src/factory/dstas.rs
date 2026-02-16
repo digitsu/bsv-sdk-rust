@@ -76,6 +76,7 @@ pub struct TokenInput {
 }
 
 /// Parameters for a DSTAS output in spend operations.
+#[derive(Clone)]
 pub struct DstasOutputParams {
     /// Satoshi value.
     pub satoshis: u64,
