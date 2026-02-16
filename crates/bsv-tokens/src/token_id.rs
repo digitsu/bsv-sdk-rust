@@ -72,6 +72,17 @@ impl TokenId {
         &self.address_string
     }
 
+    /// Create a `TokenId` directly from a 20-byte public key hash.
+    ///
+    /// The address string will be set to the hex encoding of the PKH.
+    pub fn from_pkh(pkh: [u8; 20]) -> Self {
+        let hex_str: String = pkh.iter().map(|b| format!("{:02x}", b)).collect();
+        Self {
+            address_string: hex_str,
+            pkh,
+        }
+    }
+
     /// Returns the 20-byte public key hash.
     pub fn public_key_hash(&self) -> &[u8; 20] {
         &self.pkh

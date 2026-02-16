@@ -6,6 +6,7 @@
 
 pub mod error;
 pub mod scheme;
+pub mod script;
 pub mod token_id;
 pub mod script_type;
 pub mod types;
