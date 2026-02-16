@@ -2,6 +2,9 @@
 //!
 //! Pure functions that build complete, signed transactions for STAS token
 //! operations: issue, transfer, split, merge, and redeem.
+//!
+//! Also includes BTG (Back-to-Genesis) variants that produce STAS-BTG token
+//! outputs and require prev-TX proof data in the unlocking scripts.
 
 use bsv_primitives::ec::PrivateKey;
 use bsv_script::opcodes::{OP_FALSE, OP_RETURN};
@@ -14,7 +17,9 @@ use bsv_transaction::transaction::Transaction;
 
 use crate::error::TokenError;
 use crate::script::stas_builder::build_stas_locking_script;
+use crate::script::stas_btg_builder::build_stas_btg_locking_script;
 use crate::template::stas as stas_template;
+use crate::template::stas_btg as stas_btg_template;
 use crate::types::{Destination, Payment};
 
 // -----------------------------------------------------------------------
@@ -465,6 +470,275 @@ pub fn build_redeem_tx(config: &RedeemConfig) -> Result<Transaction, TokenError>
     Ok(tx)
 }
 
+// =======================================================================
+// BTG (Back-to-Genesis) factory functions
+// =======================================================================
+
+/// A UTXO payment input that includes the raw previous transaction for BTG proof.
+///
+/// Extends [`Payment`] with the raw bytes of the previous transaction, which
+/// the BTG unlocking template splits into three proof segments.
+pub struct BtgPayment {
+    /// Standard payment fields (txid, vout, satoshis, locking_script, private_key).
+    pub payment: Payment,
+    /// Raw bytes of the previous transaction (wire format).
+    /// Used to construct the BTG prev-TX proof in the unlocking script.
+    pub prev_raw_tx: Vec<u8>,
+}
+
+/// Configuration for transferring a STAS-BTG token.
+pub struct BtgTransferConfig {
+    /// The token UTXO being transferred, with raw prev TX for proof.
+    pub token_utxo: BtgPayment,
+    /// The recipient destination.
+    pub destination: Destination,
+    /// The 20-byte redemption public key hash.
+    pub redemption_pkh: [u8; 20],
+    /// Whether the token is splittable.
+    pub splittable: bool,
+    /// Funding UTXO for fees.
+    pub funding: Payment,
+    /// Fee rate in satoshis per kilobyte.
+    pub fee_rate: u64,
+}
+
+/// Configuration for splitting a STAS-BTG token.
+pub struct BtgSplitConfig {
+    /// The token UTXO being split, with raw prev TX for proof.
+    pub token_utxo: BtgPayment,
+    /// The split destinations (must sum to token_utxo satoshis).
+    pub destinations: Vec<Destination>,
+    /// The 20-byte redemption public key hash.
+    pub redemption_pkh: [u8; 20],
+    /// Funding UTXO for fees.
+    pub funding: Payment,
+    /// Fee rate in satoshis per kilobyte.
+    pub fee_rate: u64,
+}
+
+/// Configuration for merging multiple STAS-BTG tokens.
+pub struct BtgMergeConfig {
+    /// The token UTXOs being merged, each with raw prev TX for proof.
+    pub token_utxos: Vec<BtgPayment>,
+    /// The recipient destination.
+    pub destination: Destination,
+    /// The 20-byte redemption public key hash.
+    pub redemption_pkh: [u8; 20],
+    /// Whether the merged token is splittable.
+    pub splittable: bool,
+    /// Funding UTXO for fees.
+    pub funding: Payment,
+    /// Fee rate in satoshis per kilobyte.
+    pub fee_rate: u64,
+}
+
+/// Sign token inputs using BTG unlocking templates and funding input with P2PKH.
+///
+/// Each token input gets a STAS-BTG unlocker that includes the prev-TX proof.
+/// The funding input (at `funding_index`) uses a standard P2PKH unlocker.
+fn sign_btg_inputs(
+    tx: &mut Transaction,
+    token_btg_data: &[(&PrivateKey, &[u8], u32)], // (key, prev_raw_tx, prev_vout)
+    funding_key: &PrivateKey,
+    funding_index: u32,
+) -> Result<(), TokenError> {
+    // Sign token inputs with BTG unlocking templates
+    for (i, (key, prev_raw, prev_vout)) in token_btg_data.iter().enumerate() {
+        let unlocker = stas_btg_template::unlock_btg(
+            (*key).clone(),
+            None,
+            prev_raw.to_vec(),
+            *prev_vout,
+        );
+        let script = unlocker.sign(tx, i as u32)?;
+        tx.inputs[i].unlocking_script = Some(script);
+    }
+
+    // Sign funding input with P2PKH
+    let p2pkh_unlocker = p2pkh::unlock(funding_key.clone(), None);
+    let script = p2pkh_unlocker.sign(tx, funding_index)?;
+    tx.inputs[funding_index as usize].unlocking_script = Some(script);
+
+    Ok(())
+}
+
+/// Build a BTG transfer transaction.
+///
+/// Transfers a STAS-BTG token to a new owner, including the prev-TX proof
+/// in the unlocking script. The output uses a STAS-BTG locking script.
+///
+/// # Transaction structure
+/// - Input 0: Token UTXO (STAS-BTG, with prev-TX proof)
+/// - Input 1: Funding UTXO (P2PKH)
+/// - Output 0: STAS-BTG token to destination
+/// - Output 1: Change
+pub fn build_btg_transfer_tx(config: &BtgTransferConfig) -> Result<Transaction, TokenError> {
+    if config.destination.satoshis != config.token_utxo.payment.satoshis {
+        return Err(TokenError::AmountMismatch {
+            expected: config.token_utxo.payment.satoshis,
+            actual: config.destination.satoshis,
+        });
+    }
+
+    let mut tx = Transaction::new();
+
+    add_token_input(&mut tx, &config.token_utxo.payment);
+    add_funding_input(&mut tx, &config.funding);
+
+    let locking_script = build_stas_btg_locking_script(
+        &config.destination.address,
+        &config.redemption_pkh,
+        config.splittable,
+    )?;
+    tx.add_output(TransactionOutput {
+        satoshis: config.destination.satoshis,
+        locking_script,
+        change: false,
+    });
+
+    add_change_output(&mut tx, &config.funding, config.fee_rate)?;
+
+    sign_btg_inputs(
+        &mut tx,
+        &[(
+            &config.token_utxo.payment.private_key,
+            &config.token_utxo.prev_raw_tx,
+            config.token_utxo.payment.vout,
+        )],
+        &config.funding.private_key,
+        1,
+    )?;
+
+    Ok(tx)
+}
+
+/// Build a BTG split transaction.
+///
+/// Splits a STAS-BTG token into multiple outputs, each with a STAS-BTG
+/// locking script. The unlocking script includes the prev-TX proof.
+///
+/// # Transaction structure
+/// - Input 0: Token UTXO (STAS-BTG, with prev-TX proof)
+/// - Input 1: Funding UTXO (P2PKH)
+/// - Outputs 0..N-1: STAS-BTG token outputs to destinations
+/// - Output N: Change
+pub fn build_btg_split_tx(config: &BtgSplitConfig) -> Result<Transaction, TokenError> {
+    if config.destinations.is_empty() {
+        return Err(TokenError::InvalidDestination(
+            "at least one destination required".into(),
+        ));
+    }
+
+    if config.destinations.len() > 4 {
+        return Err(TokenError::InvalidDestination(
+            "maximum 4 split destinations allowed".into(),
+        ));
+    }
+
+    let total: u64 = config.destinations.iter().map(|d| d.satoshis).sum();
+    if total != config.token_utxo.payment.satoshis {
+        return Err(TokenError::AmountMismatch {
+            expected: config.token_utxo.payment.satoshis,
+            actual: total,
+        });
+    }
+
+    let mut tx = Transaction::new();
+
+    add_token_input(&mut tx, &config.token_utxo.payment);
+    add_funding_input(&mut tx, &config.funding);
+
+    for dest in &config.destinations {
+        let locking_script = build_stas_btg_locking_script(
+            &dest.address,
+            &config.redemption_pkh,
+            true, // splittable tokens only
+        )?;
+        tx.add_output(TransactionOutput {
+            satoshis: dest.satoshis,
+            locking_script,
+            change: false,
+        });
+    }
+
+    add_change_output(&mut tx, &config.funding, config.fee_rate)?;
+
+    sign_btg_inputs(
+        &mut tx,
+        &[(
+            &config.token_utxo.payment.private_key,
+            &config.token_utxo.prev_raw_tx,
+            config.token_utxo.payment.vout,
+        )],
+        &config.funding.private_key,
+        1,
+    )?;
+
+    Ok(tx)
+}
+
+/// Build a BTG merge transaction.
+///
+/// Merges multiple STAS-BTG tokens into a single output. Each input includes
+/// its own prev-TX proof in the unlocking script.
+///
+/// # Transaction structure
+/// - Inputs 0..N-1: Token UTXOs (STAS-BTG, each with prev-TX proof)
+/// - Input N: Funding UTXO (P2PKH)
+/// - Output 0: Merged STAS-BTG token
+/// - Output 1: Change
+pub fn build_btg_merge_tx(config: &BtgMergeConfig) -> Result<Transaction, TokenError> {
+    if config.token_utxos.len() < 2 {
+        return Err(TokenError::InvalidDestination(
+            "at least 2 token UTXOs required for merge".into(),
+        ));
+    }
+
+    let total_tokens: u64 = config.token_utxos.iter().map(|u| u.payment.satoshis).sum();
+    if total_tokens != config.destination.satoshis {
+        return Err(TokenError::AmountMismatch {
+            expected: total_tokens,
+            actual: config.destination.satoshis,
+        });
+    }
+
+    let mut tx = Transaction::new();
+
+    for utxo in &config.token_utxos {
+        add_token_input(&mut tx, &utxo.payment);
+    }
+    add_funding_input(&mut tx, &config.funding);
+
+    let locking_script = build_stas_btg_locking_script(
+        &config.destination.address,
+        &config.redemption_pkh,
+        config.splittable,
+    )?;
+    tx.add_output(TransactionOutput {
+        satoshis: config.destination.satoshis,
+        locking_script,
+        change: false,
+    });
+
+    add_change_output(&mut tx, &config.funding, config.fee_rate)?;
+
+    let btg_data: Vec<(&PrivateKey, &[u8], u32)> = config
+        .token_utxos
+        .iter()
+        .map(|u| {
+            (
+                &u.payment.private_key,
+                u.prev_raw_tx.as_slice(),
+                u.payment.vout,
+            )
+        })
+        .collect();
+    let funding_index = config.token_utxos.len() as u32;
+    sign_btg_inputs(&mut tx, &btg_data, &config.funding.private_key, funding_index)?;
+
+    Ok(tx)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -798,5 +1072,165 @@ mod tests {
         }
         assert!(tx.inputs[0].unlocking_script.is_some());
         assert!(tx.inputs[1].unlocking_script.is_some());
+    }
+
+    // ---------------------------------------------------------------
+    // BTG Transfer tests
+    // ---------------------------------------------------------------
+
+    /// Build a fake "previous transaction" for BTG proof testing.
+    fn build_fake_prev_tx(satoshis: u64) -> (Payment, Vec<u8>) {
+        let key = PrivateKey::new();
+        let pubkey = key.pub_key().to_compressed();
+        let pkh = bsv_primitives::hash::hash160(&pubkey);
+        let addr = bsv_script::Address::from_public_key_hash(&pkh, bsv_script::Network::Mainnet);
+        let locking = p2pkh::lock(&addr).unwrap();
+
+        // Build a minimal "prev tx" with a single output
+        let mut prev_tx = Transaction::new();
+        let mut input = bsv_transaction::input::TransactionInput::new();
+        input.source_txid = [0xdd; 32];
+        input.source_tx_out_index = 0;
+        input.unlocking_script = Some(Script::new());
+        input.sequence_number = 0xffffffff;
+        prev_tx.add_input(input);
+        prev_tx.add_output(TransactionOutput {
+            satoshis,
+            locking_script: locking.clone(),
+            change: false,
+        });
+
+        let raw = prev_tx.to_bytes();
+        let txid_bytes = bsv_primitives::hash::sha256d(&raw);
+        let mut txid_le = txid_bytes;
+        txid_le.reverse();
+        let txid = Hash::from_bytes(&txid_le).unwrap();
+
+        let payment = Payment {
+            txid,
+            vout: 0,
+            satoshis,
+            locking_script: locking,
+            private_key: key,
+        };
+
+        (payment, raw)
+    }
+
+    #[test]
+    fn btg_transfer_tx_structure() {
+        let (token_payment, prev_raw) = build_fake_prev_tx(5000);
+        let funding = test_payment(50000);
+        let dest = test_destination(5000);
+
+        let config = BtgTransferConfig {
+            token_utxo: BtgPayment {
+                payment: token_payment,
+                prev_raw_tx: prev_raw,
+            },
+            destination: dest,
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        let tx = build_btg_transfer_tx(&config).unwrap();
+        assert_eq!(tx.input_count(), 2);
+        assert!(tx.output_count() >= 1);
+        assert_eq!(tx.outputs[0].satoshis, 5000);
+        // Token input should have a BTG unlocking script (longer than P2PKH)
+        let token_unlock = tx.inputs[0].unlocking_script.as_ref().unwrap();
+        assert!(
+            token_unlock.len() > 106,
+            "BTG unlocking script should be longer than P2PKH"
+        );
+        assert!(tx.inputs[1].unlocking_script.is_some());
+    }
+
+    #[test]
+    fn btg_transfer_amount_mismatch() {
+        let (token_payment, prev_raw) = build_fake_prev_tx(5000);
+        let funding = test_payment(50000);
+        let dest = test_destination(3000); // wrong
+
+        let config = BtgTransferConfig {
+            token_utxo: BtgPayment {
+                payment: token_payment,
+                prev_raw_tx: prev_raw,
+            },
+            destination: dest,
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        assert!(build_btg_transfer_tx(&config).is_err());
+    }
+
+    // ---------------------------------------------------------------
+    // BTG Split tests
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn btg_split_tx_structure() {
+        let (token_payment, prev_raw) = build_fake_prev_tx(10000);
+        let funding = test_payment(50000);
+        let d1 = test_destination(4000);
+        let d2 = test_destination(6000);
+
+        let config = BtgSplitConfig {
+            token_utxo: BtgPayment {
+                payment: token_payment,
+                prev_raw_tx: prev_raw,
+            },
+            destinations: vec![d1, d2],
+            redemption_pkh: redemption_pkh(),
+            funding,
+            fee_rate: 500,
+        };
+
+        let tx = build_btg_split_tx(&config).unwrap();
+        assert_eq!(tx.input_count(), 2);
+        assert_eq!(tx.outputs[0].satoshis, 4000);
+        assert_eq!(tx.outputs[1].satoshis, 6000);
+    }
+
+    // ---------------------------------------------------------------
+    // BTG Merge tests
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn btg_merge_tx_structure() {
+        let (t1, raw1) = build_fake_prev_tx(3000);
+        let (t2, raw2) = build_fake_prev_tx(7000);
+        let funding = test_payment(50000);
+        let dest = test_destination(10000);
+
+        let config = BtgMergeConfig {
+            token_utxos: vec![
+                BtgPayment {
+                    payment: t1,
+                    prev_raw_tx: raw1,
+                },
+                BtgPayment {
+                    payment: t2,
+                    prev_raw_tx: raw2,
+                },
+            ],
+            destination: dest,
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        let tx = build_btg_merge_tx(&config).unwrap();
+        assert_eq!(tx.input_count(), 3); // 2 tokens + 1 funding
+        assert_eq!(tx.outputs[0].satoshis, 10000);
+        assert!(tx.inputs[0].unlocking_script.is_some());
+        assert!(tx.inputs[1].unlocking_script.is_some());
+        assert!(tx.inputs[2].unlocking_script.is_some());
     }
 }

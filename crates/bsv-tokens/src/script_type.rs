@@ -9,6 +9,8 @@ pub enum ScriptType {
     P2pkh,
     /// STAS token script.
     Stas,
+    /// STAS-BTG (Back-to-Genesis) token script with on-chain prev-TX verification.
+    StasBtg,
     /// dSTAS (data STAS) token script.
     Dstas,
     /// OP_RETURN data carrier script.
@@ -22,6 +24,7 @@ impl fmt::Display for ScriptType {
         match self {
             ScriptType::P2pkh => write!(f, "P2PKH"),
             ScriptType::Stas => write!(f, "STAS"),
+            ScriptType::StasBtg => write!(f, "STAS-BTG"),
             ScriptType::Dstas => write!(f, "dSTAS"),
             ScriptType::OpReturn => write!(f, "OP_RETURN"),
             ScriptType::Unknown => write!(f, "Unknown"),

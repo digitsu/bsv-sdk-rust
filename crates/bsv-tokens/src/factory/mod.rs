@@ -15,4 +15,6 @@ pub use dstas::{
 pub use stas::{
     build_issue_tx, build_merge_tx, build_redeem_tx, build_split_tx, build_transfer_tx,
     IssueConfig, MergeConfig, RedeemConfig, SplitConfig, TransferConfig,
+    build_btg_transfer_tx, build_btg_split_tx, build_btg_merge_tx,
+    BtgTransferConfig, BtgSplitConfig, BtgMergeConfig, BtgPayment,
 };

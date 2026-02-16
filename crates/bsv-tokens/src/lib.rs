@@ -1,13 +1,19 @@
 #![deny(missing_docs)]
-//! BSV Token protocol support (STAS, dSTAS).
+//! BSV Token protocol support (STAS, dSTAS, STAS-BTG).
 //!
 //! Provides types and utilities for creating, transferring, and managing
 //! tokens on the BSV blockchain using the STAS and dSTAS protocols.
+//!
+//! The STAS-BTG (Back-to-Genesis) variant adds on-chain prev-TX verification
+//! to each token hop, eliminating the need for full ancestor chain traversal
+//! to validate token legitimacy.
 
 #[cfg(feature = "bundle")]
 pub mod bundle;
 pub mod error;
 pub mod factory;
+pub mod lineage;
+pub mod proof;
 pub mod scheme;
 pub mod script;
 pub mod script_type;
@@ -21,13 +27,19 @@ pub use token_id::TokenId;
 pub use script_type::ScriptType;
 pub use types::{Payment, Destination, DstasSpendType, ActionData, DstasLockingParams, DstasDestination};
 pub use script::stas_builder::build_stas_locking_script;
+pub use script::stas_btg_builder::build_stas_btg_locking_script;
 pub use script::dstas_builder::{build_dstas_locking_script, build_dstas_flags};
 pub use template::stas::StasUnlockingTemplate;
+pub use template::stas_btg::StasBtgUnlockingTemplate;
 pub use template::dstas::DstasUnlockingTemplate;
+pub use proof::split_tx_around_output;
+pub use lineage::{LineageValidator, TxFetcher};
 pub use factory::{
     build_contract_tx, ContractConfig,
     build_issue_tx, build_transfer_tx, build_split_tx, build_merge_tx, build_redeem_tx,
     IssueConfig, TransferConfig, SplitConfig, MergeConfig, RedeemConfig,
+    build_btg_transfer_tx, build_btg_split_tx, build_btg_merge_tx,
+    BtgTransferConfig, BtgSplitConfig, BtgMergeConfig, BtgPayment,
     build_dstas_issue_txs, build_dstas_base_tx, build_dstas_freeze_tx, build_dstas_unfreeze_tx,
     build_dstas_swap_flow_tx, DstasIssueConfig, DstasIssueOutput, DstasIssueTxs,
     DstasBaseConfig, DstasOutputParams, TokenInput,
