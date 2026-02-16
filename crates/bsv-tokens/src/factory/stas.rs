@@ -739,6 +739,94 @@ pub fn build_btg_merge_tx(config: &BtgMergeConfig) -> Result<Transaction, TokenE
     Ok(tx)
 }
 
+/// Configuration for a BTG checkpoint transaction.
+///
+/// A checkpoint TX allows the issuer (redemption key holder) to co-sign
+/// alongside the current owner, resetting the prev-TX proof chain depth.
+/// This prevents linear size growth in BTG token transactions.
+///
+/// The issuer never takes custody — they merely attest that the current token
+/// state is valid by co-signing. After the checkpoint TX, subsequent transfers
+/// only need to include the small checkpoint TX as their prev-TX proof.
+pub struct BtgCheckpointConfig {
+    /// The current STAS-BTG token UTXO.
+    pub token_utxo: Payment,
+    /// The issuer's private key (redemption key) for attestation co-signing.
+    pub issuer_private_key: PrivateKey,
+    /// The recipient destination (typically the same owner).
+    pub destination: Destination,
+    /// The 20-byte redemption public key hash.
+    pub redemption_pkh: [u8; 20],
+    /// Whether the token is splittable.
+    pub splittable: bool,
+    /// Funding UTXO for fees.
+    pub funding: Payment,
+    /// Fee rate in satoshis per kilobyte.
+    pub fee_rate: u64,
+}
+
+/// Build a BTG checkpoint transaction.
+///
+/// A checkpoint TX uses the issuer co-signature path (OP_ELSE branch) of the
+/// dual-path STAS-BTG locking script. This resets the proof chain depth,
+/// preventing linear size growth in successive token transfers.
+///
+/// # Transaction structure
+/// - Input 0: Token UTXO (STAS-BTG, checkpoint path with issuer co-signature)
+/// - Input 1: Funding UTXO (P2PKH)
+/// - Output 0: Fresh STAS-BTG token to destination
+/// - Output 1: Change
+///
+/// # Errors
+/// Returns [`TokenError::AmountMismatch`] if destination satoshis don't match
+/// the token UTXO, or [`TokenError::InsufficientFunds`] if funding is too low.
+pub fn build_btg_checkpoint_tx(config: &BtgCheckpointConfig) -> Result<Transaction, TokenError> {
+    if config.destination.satoshis != config.token_utxo.satoshis {
+        return Err(TokenError::AmountMismatch {
+            expected: config.token_utxo.satoshis,
+            actual: config.destination.satoshis,
+        });
+    }
+
+    let mut tx = Transaction::new();
+
+    // Input 0: Token UTXO (will use checkpoint unlocking template)
+    add_token_input(&mut tx, &config.token_utxo);
+    // Input 1: Funding UTXO (P2PKH)
+    add_funding_input(&mut tx, &config.funding);
+
+    // Output 0: Fresh STAS-BTG token to destination
+    let locking_script = build_stas_btg_locking_script(
+        &config.destination.address,
+        &config.redemption_pkh,
+        config.splittable,
+    )?;
+    tx.add_output(TransactionOutput {
+        satoshis: config.destination.satoshis,
+        locking_script,
+        change: false,
+    });
+
+    // Change output
+    add_change_output(&mut tx, &config.funding, config.fee_rate)?;
+
+    // Sign input 0 with checkpoint unlocking template (owner + issuer co-sign)
+    let checkpoint_unlocker = stas_btg_template::unlock_btg_checkpoint(
+        config.token_utxo.private_key.clone(),
+        config.issuer_private_key.clone(),
+        None,
+    );
+    let checkpoint_script = checkpoint_unlocker.sign(&tx, 0)?;
+    tx.inputs[0].unlocking_script = Some(checkpoint_script);
+
+    // Sign input 1 with P2PKH (funding)
+    let p2pkh_unlocker = p2pkh::unlock(config.funding.private_key.clone(), None);
+    let funding_script = p2pkh_unlocker.sign(&tx, 1)?;
+    tx.inputs[1].unlocking_script = Some(funding_script);
+
+    Ok(tx)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1232,5 +1320,101 @@ mod tests {
         assert!(tx.inputs[0].unlocking_script.is_some());
         assert!(tx.inputs[1].unlocking_script.is_some());
         assert!(tx.inputs[2].unlocking_script.is_some());
+    }
+
+    // ---------------------------------------------------------------
+    // BTG Checkpoint tests
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn btg_checkpoint_tx_structure() {
+        let token = test_payment(5000);
+        let issuer_key = PrivateKey::new();
+        let funding = test_payment(50000);
+        let dest = test_destination(5000);
+
+        let config = BtgCheckpointConfig {
+            token_utxo: token,
+            issuer_private_key: issuer_key,
+            destination: dest,
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        let tx = build_btg_checkpoint_tx(&config).unwrap();
+        assert_eq!(tx.input_count(), 2);
+        assert!(tx.output_count() >= 1);
+        assert_eq!(tx.outputs[0].satoshis, 5000);
+
+        // Both inputs should be signed
+        assert!(tx.inputs[0].unlocking_script.is_some());
+        assert!(tx.inputs[1].unlocking_script.is_some());
+
+        // Token input uses checkpoint template (~217 bytes, not proof template)
+        let token_unlock = tx.inputs[0].unlocking_script.as_ref().unwrap();
+        let unlock_bytes = token_unlock.to_bytes();
+
+        // Last byte should be OP_FALSE (0x00) for checkpoint path
+        assert_eq!(
+            *unlock_bytes.last().unwrap(),
+            0x00,
+            "checkpoint unlocking script should end with OP_FALSE"
+        );
+
+        // Checkpoint unlock is ~217 bytes (shorter than BTG proof which includes prev TX)
+        assert!(
+            unlock_bytes.len() > 200 && unlock_bytes.len() < 250,
+            "checkpoint unlock ({} bytes) should be ~217 bytes",
+            unlock_bytes.len()
+        );
+    }
+
+    #[test]
+    fn btg_checkpoint_amount_mismatch() {
+        let token = test_payment(5000);
+        let issuer_key = PrivateKey::new();
+        let funding = test_payment(50000);
+        let dest = test_destination(3000); // wrong
+
+        let config = BtgCheckpointConfig {
+            token_utxo: token,
+            issuer_private_key: issuer_key,
+            destination: dest,
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        assert!(build_btg_checkpoint_tx(&config).is_err());
+    }
+
+    #[test]
+    fn btg_checkpoint_output_is_stas_btg() {
+        let token = test_payment(5000);
+        let issuer_key = PrivateKey::new();
+        let funding = test_payment(50000);
+        let dest = test_destination(5000);
+
+        let config = BtgCheckpointConfig {
+            token_utxo: token,
+            issuer_private_key: issuer_key,
+            destination: dest,
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        let tx = build_btg_checkpoint_tx(&config).unwrap();
+        let output_script = tx.outputs[0].locking_script.to_bytes();
+
+        // Output should be a fresh STAS-BTG locking script (starts with OP_IF)
+        assert_eq!(
+            output_script[0], 0x63,
+            "checkpoint output should be a STAS-BTG script (starts with OP_IF)"
+        );
     }
 }

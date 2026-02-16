@@ -30,7 +30,7 @@ pub use script::stas_builder::build_stas_locking_script;
 pub use script::stas_btg_builder::build_stas_btg_locking_script;
 pub use script::dstas_builder::{build_dstas_locking_script, build_dstas_flags};
 pub use template::stas::StasUnlockingTemplate;
-pub use template::stas_btg::StasBtgUnlockingTemplate;
+pub use template::stas_btg::{StasBtgUnlockingTemplate, StasBtgCheckpointUnlockingTemplate};
 pub use template::dstas::DstasUnlockingTemplate;
 pub use proof::split_tx_around_output;
 pub use lineage::{LineageValidator, TxFetcher};
@@ -38,8 +38,8 @@ pub use factory::{
     build_contract_tx, ContractConfig,
     build_issue_tx, build_transfer_tx, build_split_tx, build_merge_tx, build_redeem_tx,
     IssueConfig, TransferConfig, SplitConfig, MergeConfig, RedeemConfig,
-    build_btg_transfer_tx, build_btg_split_tx, build_btg_merge_tx,
-    BtgTransferConfig, BtgSplitConfig, BtgMergeConfig, BtgPayment,
+    build_btg_transfer_tx, build_btg_split_tx, build_btg_merge_tx, build_btg_checkpoint_tx,
+    BtgTransferConfig, BtgSplitConfig, BtgMergeConfig, BtgCheckpointConfig, BtgPayment,
     build_dstas_issue_txs, build_dstas_base_tx, build_dstas_freeze_tx, build_dstas_unfreeze_tx,
     build_dstas_swap_flow_tx, DstasIssueConfig, DstasIssueOutput, DstasIssueTxs,
     DstasBaseConfig, DstasOutputParams, TokenInput,

@@ -1,20 +1,31 @@
 //! Builder for STAS-BTG (Back-to-Genesis) locking scripts.
 //!
 //! The STAS-BTG template extends the standard STAS v2 template with a
-//! prev-TX verification preamble. The unlocking script pushes three segments
-//! of the previous raw transaction (`prefix`, `output`, `suffix`) which the
-//! locking script uses to:
+//! dual-path spending mechanism:
+//!
+//! ## Path A — BTG Proof (OP_IF branch)
+//!
+//! The unlocking script pushes `<sig> <pubkey> <prefix> <output> <suffix> OP_TRUE`.
+//! The BTG preamble verifies three segments of the previous raw transaction:
 //!
 //! 1. **Hash check**: Verify `hash256(prefix || output || suffix)` equals the
 //!    prev txid extracted from the sighash preimage outpoint.
 //! 2. **Value check**: Parse 8-byte LE satoshis from `output` and verify it
 //!    matches the sighash preimage value field.
 //! 3. **Script format check**: Verify the locking script in `output` starts
-//!    with `76 a9 14` (P2PKH prefix) and contains the correct redemption PKH,
-//!    proving the previous output was a legitimate STAS-BTG token or a contract
-//!    issuance (P2PKH to the redemption address).
+//!    with `76 a9 14` (P2PKH prefix) and contains the correct redemption PKH.
 //!
-//! If all checks pass, the remaining stack (`<sig> <pubkey>`) flows into the
+//! ## Path B — Checkpoint Attestation (OP_ELSE branch)
+//!
+//! The unlocking script pushes `<sig_owner> <pubkey_owner> <sig_issuer> <pubkey_issuer> OP_FALSE`.
+//! The checkpoint gate verifies the issuer's public key hashes to the embedded
+//! redemption PKH and their signature is valid (`OP_CHECKSIGVERIFY`), consuming
+//! the issuer items and leaving `<sig_owner> <pubkey_owner>` for the STAS v2 body.
+//!
+//! This enables the issuer to co-sign a "checkpoint" TX that resets the proof
+//! chain depth without taking custody, preventing linear size growth.
+//!
+//! After either path, the remaining stack (`<sig> <pubkey>`) flows into the
 //! standard STAS v2 logic for per-hop output validation.
 
 use bsv_script::Address;
@@ -25,10 +36,15 @@ use crate::error::TokenError;
 // NOTE: The BTG preamble is built dynamically by `build_btg_preamble()` because
 // it embeds the redemption PKH. A static hex constant cannot be used.
 
-/// Build a STAS-BTG locking script.
+/// Build a STAS-BTG locking script with dual-path spending.
 ///
-/// The script prepends a prev-TX verification preamble to the standard STAS v2
-/// template, creating an on-chain back-to-genesis proof chain.
+/// The script uses `OP_IF / OP_ELSE / OP_ENDIF` to support two spending paths:
+///
+/// - **Path A (BTG proof)**: Unlocking pushes `... OP_TRUE`, BTG preamble
+///   verifies the prev-TX proof, leaves `<sig> <pubkey>` for STAS v2 body.
+/// - **Path B (Checkpoint)**: Unlocking pushes `... OP_FALSE`, checkpoint gate
+///   verifies issuer co-signature, leaves `<sig_owner> <pubkey_owner>` for
+///   STAS v2 body.
 ///
 /// # Arguments
 /// * `owner` - The address that owns (can spend) the token.
@@ -46,13 +62,55 @@ pub fn build_stas_btg_locking_script(
     splittable: bool,
 ) -> Result<Script, TokenError> {
     let preamble_bytes = build_btg_preamble(redemption_pkh)?;
+    let checkpoint_gate = build_checkpoint_gate(redemption_pkh);
     let stas_body = build_stas_v2_body(owner, redemption_pkh, splittable)?;
 
-    let mut script_bytes = Vec::with_capacity(preamble_bytes.len() + stas_body.len());
+    // Structure: OP_IF [preamble] OP_ELSE [checkpoint gate] OP_ENDIF [stas v2 body]
+    let total_len = 1 + preamble_bytes.len() + 1 + checkpoint_gate.len() + 1 + stas_body.len();
+    let mut script_bytes = Vec::with_capacity(total_len);
+
+    script_bytes.push(0x63); // OP_IF
     script_bytes.extend_from_slice(&preamble_bytes);
+    script_bytes.push(0x67); // OP_ELSE
+    script_bytes.extend_from_slice(&checkpoint_gate);
+    script_bytes.push(0x68); // OP_ENDIF
     script_bytes.extend_from_slice(&stas_body);
 
     Ok(Script::from_bytes(&script_bytes))
+}
+
+/// Build the checkpoint attestation gate bytes.
+///
+/// The checkpoint gate verifies the issuer's identity and signature, allowing
+/// the issuer to co-sign a checkpoint transaction without taking custody.
+///
+/// ## Stack on entry (from unlocking script):
+/// ```text
+/// <sig_owner> <pubkey_owner> <sig_issuer> <pubkey_issuer>
+/// ```
+///
+/// ## Gate performs:
+/// 1. `OP_DUP` — duplicate `pubkey_issuer`
+/// 2. `OP_HASH160` — hash to get PKH
+/// 3. Push embedded `redemption_pkh` (20 bytes)
+/// 4. `OP_EQUALVERIFY` — verify pubkey hashes to redemption PKH
+/// 5. `OP_CHECKSIGVERIFY` — verify `sig_issuer` against `pubkey_issuer`
+///
+/// ## Stack on exit:
+/// ```text
+/// <sig_owner> <pubkey_owner>
+/// ```
+///
+/// Total gate size: 25 bytes (1+1+1+20+1+1).
+fn build_checkpoint_gate(redemption_pkh: &[u8; 20]) -> Vec<u8> {
+    let mut gate = Vec::with_capacity(25);
+    gate.push(0x76); // OP_DUP
+    gate.push(0xa9); // OP_HASH160
+    gate.push(0x14); // OP_DATA_20 (push next 20 bytes)
+    gate.extend_from_slice(redemption_pkh);
+    gate.push(0x88); // OP_EQUALVERIFY
+    gate.push(0xad); // OP_CHECKSIGVERIFY
+    gate
 }
 
 /// The full STAS v2 template (1431 bytes) with zero placeholders.
@@ -566,20 +624,23 @@ pub const STAS_BTG_MIN_LEN: usize = 1500;
 ///
 /// The offset depends on the dynamically-built preamble, so we compute it
 /// relative to the OP_PUSH20 (0x14) + 20-byte PKH push that occurs near the
-/// end of the preamble.
+/// end of the preamble (inside the OP_IF branch).
 ///
 /// Returns the expected offset of the redemption PKH within the preamble, or
 /// `None` if the preamble structure has changed.
 pub fn find_preamble_redemption_offset(script: &[u8]) -> Option<usize> {
     // Scan for the pattern: 0x14 (OP_PUSH20) followed by 20 bytes then 0x88 (OP_EQUALVERIFY)
     // This pattern uniquely identifies the redemption PKH push+verify in the preamble.
+    // With OP_IF wrapping, the preamble region extends slightly further.
     if script.len() < 22 {
         return None;
     }
     for i in 0..script.len().saturating_sub(22) {
         if script[i] == 0x14 && i + 21 < script.len() && script[i + 21] == 0x88 {
-            // Check this is in the preamble region (before STAS v2 body)
-            if i < 300 {
+            // Check this is in the preamble region (before STAS v2 body).
+            // With OP_IF + preamble + OP_ELSE + checkpoint gate + OP_ENDIF,
+            // the preamble region can be up to ~350 bytes.
+            if i < 350 {
                 return Some(i + 1); // +1 to skip the 0x14 opcode
             }
         }
@@ -614,7 +675,7 @@ mod tests {
     }
 
     #[test]
-    fn btg_script_starts_with_preamble_not_p2pkh_gate() {
+    fn btg_script_starts_with_op_if() {
         let owner_pkh = [0xaa; 20];
         let redemption_pkh = [0xbb; 20];
         let owner = test_address(owner_pkh);
@@ -623,12 +684,64 @@ mod tests {
             build_stas_btg_locking_script(&owner, &redemption_pkh, true).unwrap();
         let bytes = btg_script.to_bytes();
 
-        // The BTG preamble does NOT start with 76 a9 14 (the P2PKH gate).
-        // Instead it starts with the OP_2 OP_PICK sequence.
-        assert_ne!(
-            &bytes[..3],
-            &[0x76, 0xa9, 0x14],
-            "BTG script should NOT start with P2PKH prefix"
+        // The dual-path BTG script starts with OP_IF (0x63).
+        assert_eq!(
+            bytes[0], 0x63,
+            "BTG script should start with OP_IF (0x63), got 0x{:02x}",
+            bytes[0]
+        );
+    }
+
+    #[test]
+    fn btg_script_contains_if_else_endif() {
+        let owner_pkh = [0xaa; 20];
+        let redemption_pkh = [0xbb; 20];
+        let owner = test_address(owner_pkh);
+
+        let btg_script =
+            build_stas_btg_locking_script(&owner, &redemption_pkh, true).unwrap();
+        let bytes = btg_script.to_bytes();
+
+        // First byte must be OP_IF
+        assert_eq!(bytes[0], 0x63, "first byte should be OP_IF");
+
+        // OP_ELSE (0x67) must appear somewhere in the preamble region
+        let has_else = bytes[1..350].contains(&0x67);
+        assert!(has_else, "BTG script should contain OP_ELSE in preamble region");
+
+        // OP_ENDIF (0x68) must appear after OP_ELSE but before STAS v2 body.
+        // We look for 0x68 followed by the STAS v2 P2PKH gate (76 a9 14).
+        let found_endif_before_body = bytes.windows(4).any(|w| {
+            w[0] == 0x68 && w[1] == 0x76 && w[2] == 0xa9 && w[3] == 0x14
+        });
+        assert!(
+            found_endif_before_body,
+            "OP_ENDIF should immediately precede the STAS v2 body (76 a9 14)"
+        );
+    }
+
+    #[test]
+    fn btg_script_checkpoint_gate_overhead() {
+        let owner_pkh = [0xaa; 20];
+        let redemption_pkh = [0xbb; 20];
+        let owner = test_address(owner_pkh);
+
+        // Build a script and measure the checkpoint gate overhead.
+        // The checkpoint gate is 25 bytes, plus OP_IF/OP_ELSE/OP_ENDIF = 28 total.
+        let gate = build_checkpoint_gate(&redemption_pkh);
+        assert_eq!(gate.len(), 25, "checkpoint gate should be 25 bytes");
+
+        let btg_script =
+            build_stas_btg_locking_script(&owner, &redemption_pkh, true).unwrap();
+        let preamble_only = build_btg_preamble(&redemption_pkh).unwrap();
+        let stas_body = build_stas_v2_body(&owner, &redemption_pkh, true).unwrap();
+
+        // Total = OP_IF(1) + preamble + OP_ELSE(1) + gate(25) + OP_ENDIF(1) + body
+        let expected_len = 1 + preamble_only.len() + 1 + 25 + 1 + stas_body.len();
+        assert_eq!(
+            btg_script.len(),
+            expected_len,
+            "total script length should match component sum"
         );
     }
 
@@ -658,16 +771,17 @@ mod tests {
             build_stas_btg_locking_script(&owner, &redemption_pkh, true).unwrap();
         let bytes = btg_script.to_bytes();
 
-        // The redemption PKH should appear at least twice:
-        // 1. In the BTG preamble (for verification)
-        // 2. In the STAS v2 body (at offset 1411)
+        // The redemption PKH should appear at least three times:
+        // 1. In the BTG preamble (OP_IF branch, for prev-TX verification)
+        // 2. In the checkpoint gate (OP_ELSE branch, for issuer verification)
+        // 3. In the STAS v2 body (at offset 1411)
         let count = bytes
             .windows(20)
             .filter(|w| *w == redemption_pkh)
             .count();
         assert!(
-            count >= 2,
-            "redemption PKH should appear at least twice (preamble + body), found {count}"
+            count >= 3,
+            "redemption PKH should appear at least 3 times (preamble + checkpoint + body), found {count}"
         );
     }
 
