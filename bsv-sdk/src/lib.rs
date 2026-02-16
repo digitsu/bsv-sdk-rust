@@ -11,3 +11,4 @@ pub use bsv_wallet as wallet;
 pub use bsv_message as message;
 pub use bsv_auth as auth;
 pub use bsv_spv as spv;
+pub use bsv_tokens as tokens;
