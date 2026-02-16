@@ -3,9 +3,15 @@
 //! Each factory is a pure function that builds a complete, signed `Transaction`.
 
 pub mod contract;
+pub mod dstas;
 pub mod stas;
 
 pub use contract::{build_contract_tx, ContractConfig};
+pub use dstas::{
+    build_dstas_base_tx, build_dstas_freeze_tx, build_dstas_issue_txs, build_dstas_swap_flow_tx,
+    build_dstas_unfreeze_tx, DstasBaseConfig, DstasIssueConfig, DstasIssueOutput, DstasIssueTxs,
+    DstasOutputParams, TokenInput,
+};
 pub use stas::{
     build_issue_tx, build_merge_tx, build_redeem_tx, build_split_tx, build_transfer_tx,
     IssueConfig, MergeConfig, RedeemConfig, SplitConfig, TransferConfig,
