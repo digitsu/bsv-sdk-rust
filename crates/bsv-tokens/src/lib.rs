@@ -16,3 +16,5 @@ pub use scheme::{Authority, TokenScheme};
 pub use token_id::TokenId;
 pub use script_type::ScriptType;
 pub use types::{Payment, Destination, DstasSpendType, ActionData, DstasLockingParams, DstasDestination};
+pub use script::stas_builder::build_stas_locking_script;
+pub use script::dstas_builder::{build_dstas_locking_script, build_dstas_flags};

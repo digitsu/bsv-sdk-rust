@@ -173,11 +173,11 @@ fn try_parse_dstas(script: &[u8]) -> Option<DstasFields> {
         return None;
     }
 
-    // Find OP_RETURN (0x6a) in the rest of the script
-    let op_return_pos = script[action_offset..]
-        .iter()
-        .position(|&b| b == 0x6a)
-        .map(|p| p + action_offset)?;
+    // OP_RETURN (0x6a) is the last byte of the base template
+    let op_return_pos = action_offset + DSTAS_BASE_TEMPLATE_LEN - 1;
+    if op_return_pos >= script.len() || script[op_return_pos] != 0x6a {
+        return None;
+    }
 
     let after_op_return = &script[op_return_pos + 1..];
     let items = parse_push_data_items(after_op_return);
