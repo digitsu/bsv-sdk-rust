@@ -60,8 +60,7 @@ pub fn build_dstas_locking_script(
     // 3. Base template
     script.extend_from_slice(&base_template);
 
-    // 4. OP_RETURN
-    script.push(0x6a);
+    // 4. OP_RETURN is the last byte of the base template (0x6a)
 
     // 5. Push redemption PKH
     script.push(0x14);

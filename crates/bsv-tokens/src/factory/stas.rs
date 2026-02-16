@@ -1,0 +1,802 @@
+//! STAS transaction factories.
+//!
+//! Pure functions that build complete, signed transactions for STAS token
+//! operations: issue, transfer, split, merge, and redeem.
+
+use bsv_primitives::ec::PrivateKey;
+use bsv_script::opcodes::{OP_FALSE, OP_RETURN};
+use bsv_script::Script;
+use bsv_transaction::input::TransactionInput;
+use bsv_transaction::output::TransactionOutput;
+use bsv_transaction::template::p2pkh;
+use bsv_transaction::template::UnlockingScriptTemplate;
+use bsv_transaction::transaction::Transaction;
+
+use crate::error::TokenError;
+use crate::script::stas_builder::build_stas_locking_script;
+use crate::template::stas as stas_template;
+use crate::types::{Destination, Payment};
+
+// -----------------------------------------------------------------------
+// Config structs
+// -----------------------------------------------------------------------
+
+/// Configuration for issuing new STAS tokens.
+pub struct IssueConfig {
+    /// The contract UTXO (output from the contract TX).
+    pub contract_utxo: Payment,
+    /// Destinations for the issued tokens.
+    pub destinations: Vec<Destination>,
+    /// The 20-byte redemption public key hash.
+    pub redemption_pkh: [u8; 20],
+    /// Whether tokens are splittable.
+    pub splittable: bool,
+    /// Funding UTXO for fees.
+    pub funding: Payment,
+    /// Fee rate in satoshis per kilobyte.
+    pub fee_rate: u64,
+}
+
+/// Configuration for transferring a STAS token.
+pub struct TransferConfig {
+    /// The token UTXO being transferred.
+    pub token_utxo: Payment,
+    /// The recipient destination.
+    pub destination: Destination,
+    /// The 20-byte redemption public key hash.
+    pub redemption_pkh: [u8; 20],
+    /// Whether the token is splittable.
+    pub splittable: bool,
+    /// Funding UTXO for fees.
+    pub funding: Payment,
+    /// Fee rate in satoshis per kilobyte.
+    pub fee_rate: u64,
+}
+
+/// Configuration for splitting a STAS token.
+pub struct SplitConfig {
+    /// The token UTXO being split.
+    pub token_utxo: Payment,
+    /// The split destinations (must sum to token_utxo satoshis).
+    pub destinations: Vec<Destination>,
+    /// The 20-byte redemption public key hash.
+    pub redemption_pkh: [u8; 20],
+    /// Funding UTXO for fees.
+    pub funding: Payment,
+    /// Fee rate in satoshis per kilobyte.
+    pub fee_rate: u64,
+}
+
+/// Configuration for merging multiple STAS tokens.
+pub struct MergeConfig {
+    /// The token UTXOs being merged.
+    pub token_utxos: Vec<Payment>,
+    /// The recipient destination.
+    pub destination: Destination,
+    /// The 20-byte redemption public key hash.
+    pub redemption_pkh: [u8; 20],
+    /// Whether the merged token is splittable.
+    pub splittable: bool,
+    /// Funding UTXO for fees.
+    pub funding: Payment,
+    /// Fee rate in satoshis per kilobyte.
+    pub fee_rate: u64,
+}
+
+/// Configuration for redeeming (burning) a STAS token.
+pub struct RedeemConfig {
+    /// The token UTXO being redeemed.
+    pub token_utxo: Payment,
+    /// Funding UTXO for fees.
+    pub funding: Payment,
+    /// Fee rate in satoshis per kilobyte.
+    pub fee_rate: u64,
+}
+
+// -----------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------
+
+/// Add a funding input to the transaction.
+fn add_funding_input(tx: &mut Transaction, funding: &Payment) {
+    let mut input = TransactionInput::new();
+    input.source_txid = *funding.txid.as_bytes();
+    input.source_tx_out_index = funding.vout;
+    input.set_source_output(Some(TransactionOutput {
+        satoshis: funding.satoshis,
+        locking_script: funding.locking_script.clone(),
+        change: false,
+    }));
+    tx.add_input(input);
+}
+
+/// Add a token input to the transaction.
+fn add_token_input(tx: &mut Transaction, utxo: &Payment) {
+    let mut input = TransactionInput::new();
+    input.source_txid = *utxo.txid.as_bytes();
+    input.source_tx_out_index = utxo.vout;
+    input.set_source_output(Some(TransactionOutput {
+        satoshis: utxo.satoshis,
+        locking_script: utxo.locking_script.clone(),
+        change: false,
+    }));
+    tx.add_input(input);
+}
+
+/// Estimate transaction size.
+fn estimate_size(num_inputs: usize, outputs: &[TransactionOutput]) -> usize {
+    let mut size = 4 + 1 + 1 + 4; // version + varint(in) + varint(out) + locktime
+    size += num_inputs * (32 + 4 + 1 + 106 + 4); // each input with ~106 byte script
+    for output in outputs {
+        size += 8 + 1 + output.locking_script.len();
+    }
+    size
+}
+
+/// Calculate fee and add change output if needed. Returns error if insufficient funds.
+fn add_change_output(
+    tx: &mut Transaction,
+    funding: &Payment,
+    fee_rate: u64,
+) -> Result<(), TokenError> {
+    let num_inputs = tx.inputs.len();
+    // Estimate with a potential change output (+34 bytes)
+    let est_size = estimate_size(num_inputs, &tx.outputs) + 34;
+    let fee = (est_size as u64 * fee_rate).div_ceil(1000);
+
+    let total_in_sats = funding.satoshis;
+    // Token inputs are accounted for in token outputs, so only funding pays fees
+    // Simple approach: funding must cover fee
+    if total_in_sats < fee {
+        return Err(TokenError::InsufficientFunds {
+            needed: fee,
+            available: total_in_sats,
+        });
+    }
+
+    let change = total_in_sats - fee;
+    if change > 0 {
+        let change_address = bsv_script::Address::from_public_key_hash(
+            &bsv_primitives::hash::hash160(&funding.private_key.pub_key().to_compressed()),
+            bsv_script::Network::Mainnet,
+        );
+        let change_script = p2pkh::lock(&change_address)?;
+        tx.add_output(TransactionOutput {
+            satoshis: change,
+            locking_script: change_script,
+            change: true,
+        });
+    }
+
+    Ok(())
+}
+
+/// Sign all inputs. Token inputs use STAS template, funding input (last) uses P2PKH.
+fn sign_inputs(
+    tx: &mut Transaction,
+    token_keys: &[&PrivateKey],
+    funding_key: &PrivateKey,
+    funding_index: u32,
+) -> Result<(), TokenError> {
+    // Sign token inputs
+    for (i, key) in token_keys.iter().enumerate() {
+        let unlocker = stas_template::unlock((*key).clone(), None);
+        let script = unlocker.sign(tx, i as u32)?;
+        tx.inputs[i].unlocking_script = Some(script);
+    }
+
+    // Sign funding input
+    let p2pkh_unlocker = p2pkh::unlock(funding_key.clone(), None);
+    let script = p2pkh_unlocker.sign(tx, funding_index)?;
+    tx.inputs[funding_index as usize].unlocking_script = Some(script);
+
+    Ok(())
+}
+
+// -----------------------------------------------------------------------
+// Factory functions
+// -----------------------------------------------------------------------
+
+/// Build an issue transaction.
+///
+/// # Transaction structure
+/// - Input 0: Contract UTXO (P2PKH, signed with contract key)
+/// - Input 1: Funding UTXO (P2PKH)
+/// - Outputs 0..N-1: STAS token outputs to destinations
+/// - Output N: Change
+pub fn build_issue_tx(config: &IssueConfig) -> Result<Transaction, TokenError> {
+    if config.destinations.is_empty() {
+        return Err(TokenError::InvalidDestination(
+            "at least one destination required".into(),
+        ));
+    }
+
+    let total_tokens: u64 = config.destinations.iter().map(|d| d.satoshis).sum();
+    if total_tokens != config.contract_utxo.satoshis {
+        return Err(TokenError::AmountMismatch {
+            expected: config.contract_utxo.satoshis,
+            actual: total_tokens,
+        });
+    }
+
+    let mut tx = Transaction::new();
+
+    // Input 0: contract UTXO
+    add_token_input(&mut tx, &config.contract_utxo);
+    // Input 1: funding
+    add_funding_input(&mut tx, &config.funding);
+
+    // STAS token outputs
+    for dest in &config.destinations {
+        let locking_script = build_stas_locking_script(
+            &dest.address,
+            &config.redemption_pkh,
+            config.splittable,
+        )?;
+        tx.add_output(TransactionOutput {
+            satoshis: dest.satoshis,
+            locking_script,
+            change: false,
+        });
+    }
+
+    // Change output
+    add_change_output(&mut tx, &config.funding, config.fee_rate)?;
+
+    // Sign: input 0 with P2PKH (contract is P2PKH), input 1 with P2PKH (funding)
+    let p2pkh_unlocker0 = p2pkh::unlock(config.contract_utxo.private_key.clone(), None);
+    let script0 = p2pkh_unlocker0.sign(&tx, 0)?;
+    tx.inputs[0].unlocking_script = Some(script0);
+
+    let p2pkh_unlocker1 = p2pkh::unlock(config.funding.private_key.clone(), None);
+    let script1 = p2pkh_unlocker1.sign(&tx, 1)?;
+    tx.inputs[1].unlocking_script = Some(script1);
+
+    Ok(tx)
+}
+
+/// Build a transfer transaction.
+///
+/// # Transaction structure
+/// - Input 0: Token UTXO (STAS)
+/// - Input 1: Funding UTXO (P2PKH)
+/// - Output 0: STAS token to destination
+/// - Output 1: Change
+pub fn build_transfer_tx(config: &TransferConfig) -> Result<Transaction, TokenError> {
+    if config.destination.satoshis != config.token_utxo.satoshis {
+        return Err(TokenError::AmountMismatch {
+            expected: config.token_utxo.satoshis,
+            actual: config.destination.satoshis,
+        });
+    }
+
+    let mut tx = Transaction::new();
+
+    add_token_input(&mut tx, &config.token_utxo);
+    add_funding_input(&mut tx, &config.funding);
+
+    let locking_script = build_stas_locking_script(
+        &config.destination.address,
+        &config.redemption_pkh,
+        config.splittable,
+    )?;
+    tx.add_output(TransactionOutput {
+        satoshis: config.destination.satoshis,
+        locking_script,
+        change: false,
+    });
+
+    add_change_output(&mut tx, &config.funding, config.fee_rate)?;
+
+    sign_inputs(
+        &mut tx,
+        &[&config.token_utxo.private_key],
+        &config.funding.private_key,
+        1,
+    )?;
+
+    Ok(tx)
+}
+
+/// Build a split transaction.
+///
+/// # Transaction structure
+/// - Input 0: Token UTXO (STAS)
+/// - Input 1: Funding UTXO (P2PKH)
+/// - Outputs 0..N-1: STAS token outputs to destinations
+/// - Output N: Change
+pub fn build_split_tx(config: &SplitConfig) -> Result<Transaction, TokenError> {
+    if config.destinations.is_empty() {
+        return Err(TokenError::InvalidDestination(
+            "at least one destination required".into(),
+        ));
+    }
+
+    if config.destinations.len() > 4 {
+        return Err(TokenError::InvalidDestination(
+            "maximum 4 split destinations allowed".into(),
+        ));
+    }
+
+    let total: u64 = config.destinations.iter().map(|d| d.satoshis).sum();
+    if total != config.token_utxo.satoshis {
+        return Err(TokenError::AmountMismatch {
+            expected: config.token_utxo.satoshis,
+            actual: total,
+        });
+    }
+
+    let mut tx = Transaction::new();
+
+    add_token_input(&mut tx, &config.token_utxo);
+    add_funding_input(&mut tx, &config.funding);
+
+    for dest in &config.destinations {
+        let locking_script = build_stas_locking_script(
+            &dest.address,
+            &config.redemption_pkh,
+            true, // splittable tokens only
+        )?;
+        tx.add_output(TransactionOutput {
+            satoshis: dest.satoshis,
+            locking_script,
+            change: false,
+        });
+    }
+
+    add_change_output(&mut tx, &config.funding, config.fee_rate)?;
+
+    sign_inputs(
+        &mut tx,
+        &[&config.token_utxo.private_key],
+        &config.funding.private_key,
+        1,
+    )?;
+
+    Ok(tx)
+}
+
+/// Build a merge transaction.
+///
+/// # Transaction structure
+/// - Inputs 0..N-1: Token UTXOs (STAS)
+/// - Input N: Funding UTXO (P2PKH)
+/// - Output 0: Merged STAS token
+/// - Output 1: Change
+pub fn build_merge_tx(config: &MergeConfig) -> Result<Transaction, TokenError> {
+    if config.token_utxos.len() < 2 {
+        return Err(TokenError::InvalidDestination(
+            "at least 2 token UTXOs required for merge".into(),
+        ));
+    }
+
+    let total_tokens: u64 = config.token_utxos.iter().map(|u| u.satoshis).sum();
+    if total_tokens != config.destination.satoshis {
+        return Err(TokenError::AmountMismatch {
+            expected: total_tokens,
+            actual: config.destination.satoshis,
+        });
+    }
+
+    let mut tx = Transaction::new();
+
+    for utxo in &config.token_utxos {
+        add_token_input(&mut tx, utxo);
+    }
+    add_funding_input(&mut tx, &config.funding);
+
+    let locking_script = build_stas_locking_script(
+        &config.destination.address,
+        &config.redemption_pkh,
+        config.splittable,
+    )?;
+    tx.add_output(TransactionOutput {
+        satoshis: config.destination.satoshis,
+        locking_script,
+        change: false,
+    });
+
+    add_change_output(&mut tx, &config.funding, config.fee_rate)?;
+
+    let token_keys: Vec<&PrivateKey> = config.token_utxos.iter().map(|u| &u.private_key).collect();
+    let funding_index = config.token_utxos.len() as u32;
+    sign_inputs(&mut tx, &token_keys, &config.funding.private_key, funding_index)?;
+
+    Ok(tx)
+}
+
+/// Build a redeem (burn) transaction.
+///
+/// # Transaction structure
+/// - Input 0: Token UTXO (STAS)
+/// - Input 1: Funding UTXO (P2PKH)
+/// - Output 0: OP_RETURN (burn marker, 0 satoshis)
+/// - Output 1: Change (token satoshis + funding - fee returned to funder)
+pub fn build_redeem_tx(config: &RedeemConfig) -> Result<Transaction, TokenError> {
+    let mut tx = Transaction::new();
+
+    add_token_input(&mut tx, &config.token_utxo);
+    add_funding_input(&mut tx, &config.funding);
+
+    // OP_RETURN burn marker
+    let mut op_return_script = Script::new();
+    op_return_script.append_opcodes(&[OP_FALSE, OP_RETURN])?;
+    tx.add_output(TransactionOutput {
+        satoshis: 0,
+        locking_script: op_return_script,
+        change: false,
+    });
+
+    // Estimate fee
+    let est_size = estimate_size(2, &tx.outputs) + 34;
+    let fee = (est_size as u64 * config.fee_rate).div_ceil(1000);
+
+    let total_in = config.token_utxo.satoshis + config.funding.satoshis;
+    if total_in < fee {
+        return Err(TokenError::InsufficientFunds {
+            needed: fee,
+            available: total_in,
+        });
+    }
+
+    let change = total_in - fee;
+    if change > 0 {
+        let change_address = bsv_script::Address::from_public_key_hash(
+            &bsv_primitives::hash::hash160(
+                &config.funding.private_key.pub_key().to_compressed(),
+            ),
+            bsv_script::Network::Mainnet,
+        );
+        let change_script = p2pkh::lock(&change_address)?;
+        tx.add_output(TransactionOutput {
+            satoshis: change,
+            locking_script: change_script,
+            change: true,
+        });
+    }
+
+    sign_inputs(
+        &mut tx,
+        &[&config.token_utxo.private_key],
+        &config.funding.private_key,
+        1,
+    )?;
+
+    Ok(tx)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bsv_primitives::chainhash::Hash;
+    use bsv_primitives::ec::PrivateKey;
+
+    fn test_payment(satoshis: u64) -> Payment {
+        let key = PrivateKey::new();
+        let pubkey = key.pub_key().to_compressed();
+        let pkh = bsv_primitives::hash::hash160(&pubkey);
+        let addr = bsv_script::Address::from_public_key_hash(&pkh, bsv_script::Network::Mainnet);
+        let locking = p2pkh::lock(&addr).unwrap();
+        Payment {
+            txid: Hash::from_bytes(&[0xaa; 32]).unwrap(),
+            vout: 0,
+            satoshis,
+            locking_script: locking,
+            private_key: key,
+        }
+    }
+
+    fn test_destination(satoshis: u64) -> Destination {
+        let key = PrivateKey::new();
+        let pubkey = key.pub_key().to_compressed();
+        let pkh = bsv_primitives::hash::hash160(&pubkey);
+        Destination {
+            address: bsv_script::Address::from_public_key_hash(&pkh, bsv_script::Network::Mainnet),
+            satoshis,
+        }
+    }
+
+    fn redemption_pkh() -> [u8; 20] {
+        [0xbb; 20]
+    }
+
+    // ---------------------------------------------------------------
+    // Issue tests
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn issue_tx_structure() {
+        let contract = test_payment(10000);
+        let funding = test_payment(50000);
+        let dest = test_destination(10000);
+
+        let config = IssueConfig {
+            contract_utxo: contract,
+            destinations: vec![dest],
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        let tx = build_issue_tx(&config).unwrap();
+        assert_eq!(tx.input_count(), 2);
+        // At least 1 token output + possible change
+        assert!(tx.output_count() >= 1);
+        assert_eq!(tx.outputs[0].satoshis, 10000);
+        // All inputs should be signed
+        assert!(tx.inputs[0].unlocking_script.is_some());
+        assert!(tx.inputs[1].unlocking_script.is_some());
+    }
+
+    #[test]
+    fn issue_amount_mismatch() {
+        let contract = test_payment(10000);
+        let funding = test_payment(50000);
+        let dest = test_destination(5000); // wrong amount
+
+        let config = IssueConfig {
+            contract_utxo: contract,
+            destinations: vec![dest],
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        assert!(build_issue_tx(&config).is_err());
+    }
+
+    #[test]
+    fn issue_no_destinations() {
+        let contract = test_payment(10000);
+        let funding = test_payment(50000);
+
+        let config = IssueConfig {
+            contract_utxo: contract,
+            destinations: vec![],
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        assert!(build_issue_tx(&config).is_err());
+    }
+
+    #[test]
+    fn issue_multiple_destinations() {
+        let contract = test_payment(10000);
+        let funding = test_payment(50000);
+        let d1 = test_destination(3000);
+        let d2 = test_destination(7000);
+
+        let config = IssueConfig {
+            contract_utxo: contract,
+            destinations: vec![d1, d2],
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        let tx = build_issue_tx(&config).unwrap();
+        assert_eq!(tx.outputs[0].satoshis, 3000);
+        assert_eq!(tx.outputs[1].satoshis, 7000);
+    }
+
+    // ---------------------------------------------------------------
+    // Transfer tests
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn transfer_tx_structure() {
+        let token = test_payment(5000);
+        let funding = test_payment(50000);
+        let dest = test_destination(5000);
+
+        let config = TransferConfig {
+            token_utxo: token,
+            destination: dest,
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        let tx = build_transfer_tx(&config).unwrap();
+        assert_eq!(tx.input_count(), 2);
+        assert!(tx.output_count() >= 1);
+        assert_eq!(tx.outputs[0].satoshis, 5000);
+        assert!(tx.inputs[0].unlocking_script.is_some());
+        assert!(tx.inputs[1].unlocking_script.is_some());
+    }
+
+    #[test]
+    fn transfer_amount_mismatch() {
+        let token = test_payment(5000);
+        let funding = test_payment(50000);
+        let dest = test_destination(3000);
+
+        let config = TransferConfig {
+            token_utxo: token,
+            destination: dest,
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        assert!(build_transfer_tx(&config).is_err());
+    }
+
+    // ---------------------------------------------------------------
+    // Split tests
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn split_tx_structure() {
+        let token = test_payment(10000);
+        let funding = test_payment(50000);
+        let d1 = test_destination(4000);
+        let d2 = test_destination(6000);
+
+        let config = SplitConfig {
+            token_utxo: token,
+            destinations: vec![d1, d2],
+            redemption_pkh: redemption_pkh(),
+            funding,
+            fee_rate: 500,
+        };
+
+        let tx = build_split_tx(&config).unwrap();
+        assert_eq!(tx.input_count(), 2);
+        assert_eq!(tx.outputs[0].satoshis, 4000);
+        assert_eq!(tx.outputs[1].satoshis, 6000);
+        assert!(tx.inputs[0].unlocking_script.is_some());
+    }
+
+    #[test]
+    fn split_amount_conservation() {
+        let token = test_payment(10000);
+        let funding = test_payment(50000);
+        let d1 = test_destination(4000);
+        let d2 = test_destination(5000); // 9000 != 10000
+
+        let config = SplitConfig {
+            token_utxo: token,
+            destinations: vec![d1, d2],
+            redemption_pkh: redemption_pkh(),
+            funding,
+            fee_rate: 500,
+        };
+
+        assert!(build_split_tx(&config).is_err());
+    }
+
+    #[test]
+    fn split_too_many_destinations() {
+        let token = test_payment(10000);
+        let funding = test_payment(50000);
+        let dests: Vec<Destination> = (0..5).map(|_| test_destination(2000)).collect();
+
+        let config = SplitConfig {
+            token_utxo: token,
+            destinations: dests,
+            redemption_pkh: redemption_pkh(),
+            funding,
+            fee_rate: 500,
+        };
+
+        assert!(build_split_tx(&config).is_err());
+    }
+
+    #[test]
+    fn split_no_destinations() {
+        let token = test_payment(10000);
+        let funding = test_payment(50000);
+
+        let config = SplitConfig {
+            token_utxo: token,
+            destinations: vec![],
+            redemption_pkh: redemption_pkh(),
+            funding,
+            fee_rate: 500,
+        };
+
+        assert!(build_split_tx(&config).is_err());
+    }
+
+    // ---------------------------------------------------------------
+    // Merge tests
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn merge_tx_structure() {
+        let t1 = test_payment(3000);
+        let t2 = test_payment(7000);
+        let funding = test_payment(50000);
+        let dest = test_destination(10000);
+
+        let config = MergeConfig {
+            token_utxos: vec![t1, t2],
+            destination: dest,
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        let tx = build_merge_tx(&config).unwrap();
+        assert_eq!(tx.input_count(), 3); // 2 tokens + 1 funding
+        assert_eq!(tx.outputs[0].satoshis, 10000);
+        assert!(tx.inputs[0].unlocking_script.is_some());
+        assert!(tx.inputs[1].unlocking_script.is_some());
+        assert!(tx.inputs[2].unlocking_script.is_some());
+    }
+
+    #[test]
+    fn merge_amount_mismatch() {
+        let t1 = test_payment(3000);
+        let t2 = test_payment(7000);
+        let funding = test_payment(50000);
+        let dest = test_destination(9000); // wrong
+
+        let config = MergeConfig {
+            token_utxos: vec![t1, t2],
+            destination: dest,
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        assert!(build_merge_tx(&config).is_err());
+    }
+
+    #[test]
+    fn merge_single_utxo_rejected() {
+        let t1 = test_payment(3000);
+        let funding = test_payment(50000);
+        let dest = test_destination(3000);
+
+        let config = MergeConfig {
+            token_utxos: vec![t1],
+            destination: dest,
+            redemption_pkh: redemption_pkh(),
+            splittable: true,
+            funding,
+            fee_rate: 500,
+        };
+
+        assert!(build_merge_tx(&config).is_err());
+    }
+
+    // ---------------------------------------------------------------
+    // Redeem tests
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn redeem_tx_structure() {
+        let token = test_payment(5000);
+        let funding = test_payment(50000);
+
+        let config = RedeemConfig {
+            token_utxo: token,
+            funding,
+            fee_rate: 500,
+        };
+
+        let tx = build_redeem_tx(&config).unwrap();
+        assert_eq!(tx.input_count(), 2);
+        // Output 0 is OP_RETURN with 0 satoshis
+        assert_eq!(tx.outputs[0].satoshis, 0);
+        assert!(tx.outputs[0].locking_script.is_data());
+        // Change output should have token + funding - fee
+        if tx.output_count() > 1 {
+            assert!(tx.outputs[1].satoshis > 0);
+        }
+        assert!(tx.inputs[0].unlocking_script.is_some());
+        assert!(tx.inputs[1].unlocking_script.is_some());
+    }
+}
