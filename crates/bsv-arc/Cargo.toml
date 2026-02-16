@@ -1,0 +1,22 @@
+[package]
+name = "bsv-arc"
+description = "ARC (Authoritative Response Component) HTTP client for BSV transaction broadcasting"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["bitcoin", "bsv", "arc", "broadcast"]
+categories = ["cryptography"]
+
+[dependencies]
+bsv-transaction = { workspace = true }
+bsv-spv = { workspace = true }
+reqwest = { workspace = true, features = ["rustls-tls"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+wiremock = "0.6"

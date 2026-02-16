@@ -12,3 +12,5 @@ pub use bsv_message as message;
 pub use bsv_auth as auth;
 pub use bsv_spv as spv;
 pub use bsv_tokens as tokens;
+pub use bsv_arc as arc;
+pub use bsv_junglebus as junglebus;

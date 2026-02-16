@@ -9,6 +9,8 @@ members = [
     "crates/bsv-auth",
     "crates/bsv-spv",
     "crates/bsv-tokens",
+    "crates/bsv-arc",
+    "crates/bsv-junglebus",
     "bsv-sdk",
 ]
 
@@ -63,3 +65,5 @@ bsv-message = { path = "crates/bsv-message" }
 bsv-auth = { path = "crates/bsv-auth" }
 bsv-spv = { path = "crates/bsv-spv" }
 bsv-tokens = { path = "crates/bsv-tokens" }
+bsv-arc = { path = "crates/bsv-arc" }
+bsv-junglebus = { path = "crates/bsv-junglebus" }

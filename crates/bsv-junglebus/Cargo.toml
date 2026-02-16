@@ -1,0 +1,20 @@
+[package]
+name = "bsv-junglebus"
+description = "JungleBus client for querying BSV blockchain transactions, addresses, and block headers via GorillaPool's JungleBus service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["bitcoin", "bsv", "junglebus", "blockchain"]
+categories = ["cryptography"]
+
+[dependencies]
+reqwest = { workspace = true, features = ["rustls-tls"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+wiremock = "0.6"
