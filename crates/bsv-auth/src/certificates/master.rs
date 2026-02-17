@@ -13,6 +13,7 @@ use crate::utils::random_base64;
 /// A master certificate with encrypted symmetric keys for each field.
 #[derive(Debug, Clone)]
 pub struct MasterCertificate {
+    /// The underlying certificate.
     pub certificate: Certificate,
     /// Encrypted symmetric keys for each field (field_name -> base64 encrypted key).
     pub master_keyring: HashMap<String, String>,
@@ -46,7 +47,9 @@ impl MasterCertificate {
 
 /// Result of creating encrypted certificate fields.
 pub struct CertificateFieldsResult {
+    /// Encrypted field values (field_name -> base64 ciphertext).
     pub certificate_fields: HashMap<String, String>,
+    /// Encrypted symmetric keys for each field (field_name -> base64 encrypted key).
     pub master_keyring: HashMap<String, String>,
 }
 

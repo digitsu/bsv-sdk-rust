@@ -160,7 +160,7 @@ impl PublicKey {
     /// then uses HMAC-SHA256 with the invoice number to derive a point offset and adds
     /// it to this public key.
     ///
-    /// See BRC-42 spec: https://github.com/bitcoin-sv/BRCs/blob/master/key-derivation/0042.md
+    /// See BRC-42 spec: <https://github.com/bitcoin-sv/BRCs/blob/master/key-derivation/0042.md>
     ///
     /// # Arguments
     /// * `private_key` - The sender's private key.

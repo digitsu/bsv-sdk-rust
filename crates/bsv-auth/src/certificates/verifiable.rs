@@ -11,6 +11,7 @@ use crate::error::AuthError;
 /// A certificate with a verifier-specific keyring for selective field decryption.
 #[derive(Debug, Clone)]
 pub struct VerifiableCertificate {
+    /// The underlying certificate.
     pub certificate: Certificate,
     /// Encrypted field revelation keys for the verifier (field_name -> base64 encrypted key).
     pub keyring: HashMap<String, String>,
@@ -19,6 +20,7 @@ pub struct VerifiableCertificate {
 }
 
 impl VerifiableCertificate {
+    /// Create a new VerifiableCertificate from a certificate and a verifier-specific keyring.
     pub fn new(cert: Certificate, keyring: HashMap<String, String>) -> Self {
         Self {
             certificate: cert,

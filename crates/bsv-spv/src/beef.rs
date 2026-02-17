@@ -23,8 +23,11 @@ pub const ATOMIC_BEEF: u32 = 0x01010101;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum DataFormat {
+    /// Raw transaction bytes only, no associated BUMP.
     RawTx = 0,
+    /// Raw transaction bytes with an index into the BUMP array.
     RawTxAndBumpIndex = 1,
+    /// Transaction ID only (no raw data), used for known/already-verified txs.
     TxIDOnly = 2,
 }
 
@@ -43,17 +46,24 @@ impl TryFrom<u8> for DataFormat {
 /// A transaction within a BEEF, with optional BUMP reference.
 #[derive(Debug, Clone)]
 pub struct BeefTx {
+    /// The data format indicator for this entry.
     pub data_format: DataFormat,
+    /// The transaction ID, set when `data_format` is `TxIDOnly`.
     pub known_txid: Option<Hash>,
+    /// The full transaction, present for `RawTx` and `RawTxAndBumpIndex` formats.
     pub transaction: Option<Transaction>,
+    /// Index into the parent `Beef::bumps` array (only meaningful for `RawTxAndBumpIndex`).
     pub bump_index: usize,
 }
 
 /// A set of Transactions and their MerklePaths (BUMPs).
 #[derive(Debug, Clone)]
 pub struct Beef {
+    /// BEEF version number (e.g. `BEEF_V1` or `BEEF_V2`).
     pub version: u32,
+    /// Merkle paths (BUMPs) proving transaction inclusion in blocks.
     pub bumps: Vec<MerklePath>,
+    /// Transactions keyed by their txid hash.
     pub transactions: HashMap<Hash, BeefTx>,
 }
 

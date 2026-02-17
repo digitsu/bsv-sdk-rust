@@ -5,287 +5,559 @@
 //! plus utility functions for classifying opcodes.
 
 // === Push value ===
+
+/// Push an empty byte array (false/zero) onto the stack.
 pub const OP_0: u8 = 0x00;
+/// Push an empty byte array (false/zero) onto the stack. Alias for `OP_0`.
 pub const OP_FALSE: u8 = 0x00;
 
 // Direct data push opcodes: OP_DATA_1 through OP_DATA_75 push 1-75 bytes.
+
+/// Push the next 1 byte onto the stack.
 pub const OP_DATA_1: u8 = 0x01;
+/// Push the next 2 bytes onto the stack.
 pub const OP_DATA_2: u8 = 0x02;
+/// Push the next 3 bytes onto the stack.
 pub const OP_DATA_3: u8 = 0x03;
+/// Push the next 4 bytes onto the stack.
 pub const OP_DATA_4: u8 = 0x04;
+/// Push the next 5 bytes onto the stack.
 pub const OP_DATA_5: u8 = 0x05;
+/// Push the next 6 bytes onto the stack.
 pub const OP_DATA_6: u8 = 0x06;
+/// Push the next 7 bytes onto the stack.
 pub const OP_DATA_7: u8 = 0x07;
+/// Push the next 8 bytes onto the stack.
 pub const OP_DATA_8: u8 = 0x08;
+/// Push the next 9 bytes onto the stack.
 pub const OP_DATA_9: u8 = 0x09;
+/// Push the next 10 bytes onto the stack.
 pub const OP_DATA_10: u8 = 0x0a;
+/// Push the next 11 bytes onto the stack.
 pub const OP_DATA_11: u8 = 0x0b;
+/// Push the next 12 bytes onto the stack.
 pub const OP_DATA_12: u8 = 0x0c;
+/// Push the next 13 bytes onto the stack.
 pub const OP_DATA_13: u8 = 0x0d;
+/// Push the next 14 bytes onto the stack.
 pub const OP_DATA_14: u8 = 0x0e;
+/// Push the next 15 bytes onto the stack.
 pub const OP_DATA_15: u8 = 0x0f;
+/// Push the next 16 bytes onto the stack.
 pub const OP_DATA_16: u8 = 0x10;
+/// Push the next 17 bytes onto the stack.
 pub const OP_DATA_17: u8 = 0x11;
+/// Push the next 18 bytes onto the stack.
 pub const OP_DATA_18: u8 = 0x12;
+/// Push the next 19 bytes onto the stack.
 pub const OP_DATA_19: u8 = 0x13;
+/// Push the next 20 bytes onto the stack.
 pub const OP_DATA_20: u8 = 0x14;
+/// Push the next 21 bytes onto the stack.
 pub const OP_DATA_21: u8 = 0x15;
+/// Push the next 22 bytes onto the stack.
 pub const OP_DATA_22: u8 = 0x16;
+/// Push the next 23 bytes onto the stack.
 pub const OP_DATA_23: u8 = 0x17;
+/// Push the next 24 bytes onto the stack.
 pub const OP_DATA_24: u8 = 0x18;
+/// Push the next 25 bytes onto the stack.
 pub const OP_DATA_25: u8 = 0x19;
+/// Push the next 26 bytes onto the stack.
 pub const OP_DATA_26: u8 = 0x1a;
+/// Push the next 27 bytes onto the stack.
 pub const OP_DATA_27: u8 = 0x1b;
+/// Push the next 28 bytes onto the stack.
 pub const OP_DATA_28: u8 = 0x1c;
+/// Push the next 29 bytes onto the stack.
 pub const OP_DATA_29: u8 = 0x1d;
+/// Push the next 30 bytes onto the stack.
 pub const OP_DATA_30: u8 = 0x1e;
+/// Push the next 31 bytes onto the stack.
 pub const OP_DATA_31: u8 = 0x1f;
+/// Push the next 32 bytes onto the stack.
 pub const OP_DATA_32: u8 = 0x20;
+/// Push the next 33 bytes onto the stack.
 pub const OP_DATA_33: u8 = 0x21;
+/// Push the next 34 bytes onto the stack.
 pub const OP_DATA_34: u8 = 0x22;
+/// Push the next 35 bytes onto the stack.
 pub const OP_DATA_35: u8 = 0x23;
+/// Push the next 36 bytes onto the stack.
 pub const OP_DATA_36: u8 = 0x24;
+/// Push the next 37 bytes onto the stack.
 pub const OP_DATA_37: u8 = 0x25;
+/// Push the next 38 bytes onto the stack.
 pub const OP_DATA_38: u8 = 0x26;
+/// Push the next 39 bytes onto the stack.
 pub const OP_DATA_39: u8 = 0x27;
+/// Push the next 40 bytes onto the stack.
 pub const OP_DATA_40: u8 = 0x28;
+/// Push the next 41 bytes onto the stack.
 pub const OP_DATA_41: u8 = 0x29;
+/// Push the next 42 bytes onto the stack.
 pub const OP_DATA_42: u8 = 0x2a;
+/// Push the next 43 bytes onto the stack.
 pub const OP_DATA_43: u8 = 0x2b;
+/// Push the next 44 bytes onto the stack.
 pub const OP_DATA_44: u8 = 0x2c;
+/// Push the next 45 bytes onto the stack.
 pub const OP_DATA_45: u8 = 0x2d;
+/// Push the next 46 bytes onto the stack.
 pub const OP_DATA_46: u8 = 0x2e;
+/// Push the next 47 bytes onto the stack.
 pub const OP_DATA_47: u8 = 0x2f;
+/// Push the next 48 bytes onto the stack.
 pub const OP_DATA_48: u8 = 0x30;
+/// Push the next 49 bytes onto the stack.
 pub const OP_DATA_49: u8 = 0x31;
+/// Push the next 50 bytes onto the stack.
 pub const OP_DATA_50: u8 = 0x32;
+/// Push the next 51 bytes onto the stack.
 pub const OP_DATA_51: u8 = 0x33;
+/// Push the next 52 bytes onto the stack.
 pub const OP_DATA_52: u8 = 0x34;
+/// Push the next 53 bytes onto the stack.
 pub const OP_DATA_53: u8 = 0x35;
+/// Push the next 54 bytes onto the stack.
 pub const OP_DATA_54: u8 = 0x36;
+/// Push the next 55 bytes onto the stack.
 pub const OP_DATA_55: u8 = 0x37;
+/// Push the next 56 bytes onto the stack.
 pub const OP_DATA_56: u8 = 0x38;
+/// Push the next 57 bytes onto the stack.
 pub const OP_DATA_57: u8 = 0x39;
+/// Push the next 58 bytes onto the stack.
 pub const OP_DATA_58: u8 = 0x3a;
+/// Push the next 59 bytes onto the stack.
 pub const OP_DATA_59: u8 = 0x3b;
+/// Push the next 60 bytes onto the stack.
 pub const OP_DATA_60: u8 = 0x3c;
+/// Push the next 61 bytes onto the stack.
 pub const OP_DATA_61: u8 = 0x3d;
+/// Push the next 62 bytes onto the stack.
 pub const OP_DATA_62: u8 = 0x3e;
+/// Push the next 63 bytes onto the stack.
 pub const OP_DATA_63: u8 = 0x3f;
+/// Push the next 64 bytes onto the stack.
 pub const OP_DATA_64: u8 = 0x40;
+/// Push the next 65 bytes onto the stack.
 pub const OP_DATA_65: u8 = 0x41;
+/// Push the next 66 bytes onto the stack.
 pub const OP_DATA_66: u8 = 0x42;
+/// Push the next 67 bytes onto the stack.
 pub const OP_DATA_67: u8 = 0x43;
+/// Push the next 68 bytes onto the stack.
 pub const OP_DATA_68: u8 = 0x44;
+/// Push the next 69 bytes onto the stack.
 pub const OP_DATA_69: u8 = 0x45;
+/// Push the next 70 bytes onto the stack.
 pub const OP_DATA_70: u8 = 0x46;
+/// Push the next 71 bytes onto the stack.
 pub const OP_DATA_71: u8 = 0x47;
+/// Push the next 72 bytes onto the stack.
 pub const OP_DATA_72: u8 = 0x48;
+/// Push the next 73 bytes onto the stack.
 pub const OP_DATA_73: u8 = 0x49;
+/// Push the next 74 bytes onto the stack.
 pub const OP_DATA_74: u8 = 0x4a;
+/// Push the next 75 bytes onto the stack.
 pub const OP_DATA_75: u8 = 0x4b;
 
 // Extended push data opcodes.
+
+/// Read the next 1 byte as a length N, then push the next N bytes onto the stack.
 pub const OP_PUSHDATA1: u8 = 0x4c;
+/// Read the next 2 bytes as a little-endian length N, then push the next N bytes onto the stack.
 pub const OP_PUSHDATA2: u8 = 0x4d;
+/// Read the next 4 bytes as a little-endian length N, then push the next N bytes onto the stack.
 pub const OP_PUSHDATA4: u8 = 0x4e;
 
+/// Push the number -1 onto the stack.
 pub const OP_1NEGATE: u8 = 0x4f;
+/// Reserved opcode. Transaction is invalid if executed.
 pub const OP_RESERVED: u8 = 0x50;
+/// Base value for small integer opcodes (OP_1 through OP_16 = OP_BASE + N).
 pub const OP_BASE: u8 = 0x50;
+/// Push the number 1 onto the stack.
 pub const OP_1: u8 = 0x51;
+/// Push the number 1 onto the stack. Alias for `OP_1`.
 pub const OP_TRUE: u8 = 0x51;
+/// Push the number 2 onto the stack.
 pub const OP_2: u8 = 0x52;
+/// Push the number 3 onto the stack.
 pub const OP_3: u8 = 0x53;
+/// Push the number 4 onto the stack.
 pub const OP_4: u8 = 0x54;
+/// Push the number 5 onto the stack.
 pub const OP_5: u8 = 0x55;
+/// Push the number 6 onto the stack.
 pub const OP_6: u8 = 0x56;
+/// Push the number 7 onto the stack.
 pub const OP_7: u8 = 0x57;
+/// Push the number 8 onto the stack.
 pub const OP_8: u8 = 0x58;
+/// Push the number 9 onto the stack.
 pub const OP_9: u8 = 0x59;
+/// Push the number 10 onto the stack.
 pub const OP_10: u8 = 0x5a;
+/// Push the number 11 onto the stack.
 pub const OP_11: u8 = 0x5b;
+/// Push the number 12 onto the stack.
 pub const OP_12: u8 = 0x5c;
+/// Push the number 13 onto the stack.
 pub const OP_13: u8 = 0x5d;
+/// Push the number 14 onto the stack.
 pub const OP_14: u8 = 0x5e;
+/// Push the number 15 onto the stack.
 pub const OP_15: u8 = 0x5f;
+/// Push the number 16 onto the stack.
 pub const OP_16: u8 = 0x60;
 
 // === Flow control ===
+
+/// Do nothing.
 pub const OP_NOP: u8 = 0x61;
+/// Reserved opcode. Transaction is invalid if executed.
 pub const OP_VER: u8 = 0x62;
+/// Execute the following statements if the top stack value is true (non-zero).
 pub const OP_IF: u8 = 0x63;
+/// Execute the following statements if the top stack value is false (zero).
 pub const OP_NOTIF: u8 = 0x64;
+/// Reserved opcode. Transaction is invalid even if not executed.
 pub const OP_VERIF: u8 = 0x65;
+/// Reserved opcode. Transaction is invalid even if not executed.
 pub const OP_VERNOTIF: u8 = 0x66;
+/// Execute the following statements if the preceding OP_IF/OP_NOTIF was not executed.
 pub const OP_ELSE: u8 = 0x67;
+/// End an if/else block.
 pub const OP_ENDIF: u8 = 0x68;
+/// Mark the transaction as invalid if the top stack value is false.
 pub const OP_VERIFY: u8 = 0x69;
+/// Mark the transaction output as unspendable (provably prunable).
 pub const OP_RETURN: u8 = 0x6a;
 
 // === Stack ===
+
+/// Move the top stack item to the alt stack.
 pub const OP_TOALTSTACK: u8 = 0x6b;
+/// Move the top item from the alt stack to the main stack.
 pub const OP_FROMALTSTACK: u8 = 0x6c;
+/// Remove the top two stack items.
 pub const OP_2DROP: u8 = 0x6d;
+/// Duplicate the top two stack items.
 pub const OP_2DUP: u8 = 0x6e;
+/// Duplicate the top three stack items.
 pub const OP_3DUP: u8 = 0x6f;
+/// Copy the pair of items two spaces back to the front of the stack.
 pub const OP_2OVER: u8 = 0x70;
+/// Move the fifth and sixth items to the top of the stack.
 pub const OP_2ROT: u8 = 0x71;
+/// Swap the top two pairs of items on the stack.
 pub const OP_2SWAP: u8 = 0x72;
+/// Duplicate the top stack item if it is non-zero.
 pub const OP_IFDUP: u8 = 0x73;
+/// Push the number of items on the stack onto the stack.
 pub const OP_DEPTH: u8 = 0x74;
+/// Remove the top stack item.
 pub const OP_DROP: u8 = 0x75;
+/// Duplicate the top stack item.
 pub const OP_DUP: u8 = 0x76;
+/// Remove the second-to-top stack item.
 pub const OP_NIP: u8 = 0x77;
+/// Copy the second-to-top stack item to the top.
 pub const OP_OVER: u8 = 0x78;
+/// Copy the item N positions back in the stack to the top.
 pub const OP_PICK: u8 = 0x79;
+/// Move the item N positions back in the stack to the top.
 pub const OP_ROLL: u8 = 0x7a;
+/// Rotate the top three items on the stack (third item moves to top).
 pub const OP_ROT: u8 = 0x7b;
+/// Swap the top two stack items.
 pub const OP_SWAP: u8 = 0x7c;
+/// Copy the top stack item and insert it below the second-to-top item.
 pub const OP_TUCK: u8 = 0x7d;
 
 // === Splice ===
+
+/// Concatenate the top two stack items.
 pub const OP_CAT: u8 = 0x7e;
+/// Split the second-to-top item at position given by the top item.
 pub const OP_SPLIT: u8 = 0x7f;
+/// Convert the top numeric value to a byte array of the specified length.
 pub const OP_NUM2BIN: u8 = 0x80;
+/// Convert a byte array to a numeric value.
 pub const OP_BIN2NUM: u8 = 0x81;
+/// Push the byte length of the top stack item (without popping it).
 pub const OP_SIZE: u8 = 0x82;
 
 // === Bitwise logic ===
+
+/// Flip all bits of the top stack item.
 pub const OP_INVERT: u8 = 0x83;
+/// Bitwise AND of the top two stack items.
 pub const OP_AND: u8 = 0x84;
+/// Bitwise OR of the top two stack items.
 pub const OP_OR: u8 = 0x85;
+/// Bitwise XOR of the top two stack items.
 pub const OP_XOR: u8 = 0x86;
+/// Push 1 if the top two stack items are exactly equal, 0 otherwise.
 pub const OP_EQUAL: u8 = 0x87;
+/// Same as OP_EQUAL, then OP_VERIFY. Marks transaction invalid if not equal.
 pub const OP_EQUALVERIFY: u8 = 0x88;
+/// Reserved opcode. Transaction is invalid if executed.
 pub const OP_RESERVED1: u8 = 0x89;
+/// Reserved opcode. Transaction is invalid if executed.
 pub const OP_RESERVED2: u8 = 0x8a;
 
 // === Arithmetic ===
+
+/// Add 1 to the top stack item.
 pub const OP_1ADD: u8 = 0x8b;
+/// Subtract 1 from the top stack item.
 pub const OP_1SUB: u8 = 0x8c;
+/// Multiply the top stack item by 2 (disabled).
 pub const OP_2MUL: u8 = 0x8d;
+/// Divide the top stack item by 2 (disabled).
 pub const OP_2DIV: u8 = 0x8e;
+/// Negate the top stack item (flip its sign).
 pub const OP_NEGATE: u8 = 0x8f;
+/// Replace the top stack item with its absolute value.
 pub const OP_ABS: u8 = 0x90;
+/// Push 1 if the top item is 0, push 0 otherwise.
 pub const OP_NOT: u8 = 0x91;
+/// Push 0 if the top item is 0, push 1 otherwise.
 pub const OP_0NOTEQUAL: u8 = 0x92;
+/// Pop two items, push their sum.
 pub const OP_ADD: u8 = 0x93;
+/// Pop two items, push the second minus the top.
 pub const OP_SUB: u8 = 0x94;
+/// Pop two items, push their product.
 pub const OP_MUL: u8 = 0x95;
+/// Pop two items, push the integer quotient of the second divided by the top.
 pub const OP_DIV: u8 = 0x96;
+/// Pop two items, push the remainder of the second divided by the top.
 pub const OP_MOD: u8 = 0x97;
+/// Left-shift the second item by the number of bits given by the top item.
 pub const OP_LSHIFT: u8 = 0x98;
+/// Right-shift the second item by the number of bits given by the top item.
 pub const OP_RSHIFT: u8 = 0x99;
+/// Push 1 if both top two items are non-zero, 0 otherwise.
 pub const OP_BOOLAND: u8 = 0x9a;
+/// Push 1 if either of the top two items is non-zero, 0 otherwise.
 pub const OP_BOOLOR: u8 = 0x9b;
+/// Push 1 if the top two items are numerically equal, 0 otherwise.
 pub const OP_NUMEQUAL: u8 = 0x9c;
+/// Same as OP_NUMEQUAL, then OP_VERIFY. Marks transaction invalid if not equal.
 pub const OP_NUMEQUALVERIFY: u8 = 0x9d;
+/// Push 1 if the top two items are not numerically equal, 0 otherwise.
 pub const OP_NUMNOTEQUAL: u8 = 0x9e;
+/// Push 1 if the second item is less than the top item, 0 otherwise.
 pub const OP_LESSTHAN: u8 = 0x9f;
+/// Push 1 if the second item is greater than the top item, 0 otherwise.
 pub const OP_GREATERTHAN: u8 = 0xa0;
+/// Push 1 if the second item is less than or equal to the top item, 0 otherwise.
 pub const OP_LESSTHANOREQUAL: u8 = 0xa1;
+/// Push 1 if the second item is greater than or equal to the top item, 0 otherwise.
 pub const OP_GREATERTHANOREQUAL: u8 = 0xa2;
+/// Push the smaller of the top two stack items.
 pub const OP_MIN: u8 = 0xa3;
+/// Push the larger of the top two stack items.
 pub const OP_MAX: u8 = 0xa4;
+/// Push 1 if the third item is within the range [second, top), 0 otherwise.
 pub const OP_WITHIN: u8 = 0xa5;
 
 // === Crypto ===
+
+/// Hash the top item with RIPEMD-160.
 pub const OP_RIPEMD160: u8 = 0xa6;
+/// Hash the top item with SHA-1.
 pub const OP_SHA1: u8 = 0xa7;
+/// Hash the top item with SHA-256.
 pub const OP_SHA256: u8 = 0xa8;
+/// Hash the top item with SHA-256 then RIPEMD-160 (Bitcoin address hash).
 pub const OP_HASH160: u8 = 0xa9;
+/// Hash the top item with double SHA-256 (Bitcoin transaction hash).
 pub const OP_HASH256: u8 = 0xaa;
+/// Mark the beginning of signature-checked code.
 pub const OP_CODESEPARATOR: u8 = 0xab;
+/// Pop a public key and signature, push 1 if the signature is valid, 0 otherwise.
 pub const OP_CHECKSIG: u8 = 0xac;
+/// Same as OP_CHECKSIG, then OP_VERIFY. Marks transaction invalid if signature check fails.
 pub const OP_CHECKSIGVERIFY: u8 = 0xad;
+/// Pop N public keys and M signatures, push 1 if all signatures are valid, 0 otherwise.
 pub const OP_CHECKMULTISIG: u8 = 0xae;
+/// Same as OP_CHECKMULTISIG, then OP_VERIFY. Marks transaction invalid if check fails.
 pub const OP_CHECKMULTISIGVERIFY: u8 = 0xaf;
 
 // === Locktime ===
+
+/// No operation (reserved for future soft-fork upgrades).
 pub const OP_NOP1: u8 = 0xb0;
+/// No operation (reserved for future soft-fork upgrades). Alias for OP_CHECKLOCKTIMEVERIFY in BTC.
 pub const OP_NOP2: u8 = 0xb1;
+/// Verify that the transaction locktime is at least the given value (BTC only, NOP in BSV).
 pub const OP_CHECKLOCKTIMEVERIFY: u8 = 0xb1;
+/// No operation (reserved for future soft-fork upgrades). Alias for OP_CHECKSEQUENCEVERIFY in BTC.
 pub const OP_NOP3: u8 = 0xb2;
+/// Verify that the input sequence number is at least the given value (BTC only, NOP in BSV).
 pub const OP_CHECKSEQUENCEVERIFY: u8 = 0xb2;
+/// No operation (reserved for future soft-fork upgrades).
 pub const OP_NOP4: u8 = 0xb3;
+/// No operation (reserved for future soft-fork upgrades).
 pub const OP_NOP5: u8 = 0xb4;
+/// No operation (reserved for future soft-fork upgrades).
 pub const OP_NOP6: u8 = 0xb5;
+/// No operation (reserved for future soft-fork upgrades).
 pub const OP_NOP7: u8 = 0xb6;
+/// No operation (reserved for future soft-fork upgrades).
 pub const OP_NOP8: u8 = 0xb7;
+/// No operation (reserved for future soft-fork upgrades).
 pub const OP_NOP9: u8 = 0xb8;
+/// No operation (reserved for future soft-fork upgrades).
 pub const OP_NOP10: u8 = 0xb9;
 
 // === Unknown / internal ===
+
+/// Unknown opcode 186 (0xba). Undefined behavior.
 pub const OP_UNKNOWN186: u8 = 0xba;
+/// Unknown opcode 187 (0xbb). Undefined behavior.
 pub const OP_UNKNOWN187: u8 = 0xbb;
+/// Unknown opcode 188 (0xbc). Undefined behavior.
 pub const OP_UNKNOWN188: u8 = 0xbc;
+/// Unknown opcode 189 (0xbd). Undefined behavior.
 pub const OP_UNKNOWN189: u8 = 0xbd;
+/// Unknown opcode 190 (0xbe). Undefined behavior.
 pub const OP_UNKNOWN190: u8 = 0xbe;
+/// Unknown opcode 191 (0xbf). Undefined behavior.
 pub const OP_UNKNOWN191: u8 = 0xbf;
+/// Unknown opcode 192 (0xc0). Undefined behavior.
 pub const OP_UNKNOWN192: u8 = 0xc0;
+/// Unknown opcode 193 (0xc1). Undefined behavior.
 pub const OP_UNKNOWN193: u8 = 0xc1;
+/// Unknown opcode 194 (0xc2). Undefined behavior.
 pub const OP_UNKNOWN194: u8 = 0xc2;
+/// Unknown opcode 195 (0xc3). Undefined behavior.
 pub const OP_UNKNOWN195: u8 = 0xc3;
+/// Unknown opcode 196 (0xc4). Undefined behavior.
 pub const OP_UNKNOWN196: u8 = 0xc4;
+/// Unknown opcode 197 (0xc5). Undefined behavior.
 pub const OP_UNKNOWN197: u8 = 0xc5;
+/// Unknown opcode 198 (0xc6). Undefined behavior.
 pub const OP_UNKNOWN198: u8 = 0xc6;
+/// Unknown opcode 199 (0xc7). Undefined behavior.
 pub const OP_UNKNOWN199: u8 = 0xc7;
+/// Unknown opcode 200 (0xc8). Undefined behavior.
 pub const OP_UNKNOWN200: u8 = 0xc8;
+/// Unknown opcode 201 (0xc9). Undefined behavior.
 pub const OP_UNKNOWN201: u8 = 0xc9;
+/// Unknown opcode 202 (0xca). Undefined behavior.
 pub const OP_UNKNOWN202: u8 = 0xca;
+/// Unknown opcode 203 (0xcb). Undefined behavior.
 pub const OP_UNKNOWN203: u8 = 0xcb;
+/// Unknown opcode 204 (0xcc). Undefined behavior.
 pub const OP_UNKNOWN204: u8 = 0xcc;
+/// Unknown opcode 205 (0xcd). Undefined behavior.
 pub const OP_UNKNOWN205: u8 = 0xcd;
+/// Unknown opcode 206 (0xce). Undefined behavior.
 pub const OP_UNKNOWN206: u8 = 0xce;
+/// Unknown opcode 207 (0xcf). Undefined behavior.
 pub const OP_UNKNOWN207: u8 = 0xcf;
+/// Unknown opcode 208 (0xd0). Undefined behavior.
 pub const OP_UNKNOWN208: u8 = 0xd0;
+/// Unknown opcode 209 (0xd1). Undefined behavior.
 pub const OP_UNKNOWN209: u8 = 0xd1;
+/// Unknown opcode 210 (0xd2). Undefined behavior.
 pub const OP_UNKNOWN210: u8 = 0xd2;
+/// Unknown opcode 211 (0xd3). Undefined behavior.
 pub const OP_UNKNOWN211: u8 = 0xd3;
+/// Unknown opcode 212 (0xd4). Undefined behavior.
 pub const OP_UNKNOWN212: u8 = 0xd4;
+/// Unknown opcode 213 (0xd5). Undefined behavior.
 pub const OP_UNKNOWN213: u8 = 0xd5;
+/// Unknown opcode 214 (0xd6). Undefined behavior.
 pub const OP_UNKNOWN214: u8 = 0xd6;
+/// Unknown opcode 215 (0xd7). Undefined behavior.
 pub const OP_UNKNOWN215: u8 = 0xd7;
+/// Unknown opcode 216 (0xd8). Undefined behavior.
 pub const OP_UNKNOWN216: u8 = 0xd8;
+/// Unknown opcode 217 (0xd9). Undefined behavior.
 pub const OP_UNKNOWN217: u8 = 0xd9;
+/// Unknown opcode 218 (0xda). Undefined behavior.
 pub const OP_UNKNOWN218: u8 = 0xda;
+/// Unknown opcode 219 (0xdb). Undefined behavior.
 pub const OP_UNKNOWN219: u8 = 0xdb;
+/// Unknown opcode 220 (0xdc). Undefined behavior.
 pub const OP_UNKNOWN220: u8 = 0xdc;
+/// Unknown opcode 221 (0xdd). Undefined behavior.
 pub const OP_UNKNOWN221: u8 = 0xdd;
+/// Unknown opcode 222 (0xde). Undefined behavior.
 pub const OP_UNKNOWN222: u8 = 0xde;
+/// Unknown opcode 223 (0xdf). Undefined behavior.
 pub const OP_UNKNOWN223: u8 = 0xdf;
+/// Unknown opcode 224 (0xe0). Undefined behavior.
 pub const OP_UNKNOWN224: u8 = 0xe0;
+/// Unknown opcode 225 (0xe1). Undefined behavior.
 pub const OP_UNKNOWN225: u8 = 0xe1;
+/// Unknown opcode 226 (0xe2). Undefined behavior.
 pub const OP_UNKNOWN226: u8 = 0xe2;
+/// Unknown opcode 227 (0xe3). Undefined behavior.
 pub const OP_UNKNOWN227: u8 = 0xe3;
+/// Unknown opcode 228 (0xe4). Undefined behavior.
 pub const OP_UNKNOWN228: u8 = 0xe4;
+/// Unknown opcode 229 (0xe5). Undefined behavior.
 pub const OP_UNKNOWN229: u8 = 0xe5;
+/// Unknown opcode 230 (0xe6). Undefined behavior.
 pub const OP_UNKNOWN230: u8 = 0xe6;
+/// Unknown opcode 231 (0xe7). Undefined behavior.
 pub const OP_UNKNOWN231: u8 = 0xe7;
+/// Unknown opcode 232 (0xe8). Undefined behavior.
 pub const OP_UNKNOWN232: u8 = 0xe8;
+/// Unknown opcode 233 (0xe9). Undefined behavior.
 pub const OP_UNKNOWN233: u8 = 0xe9;
+/// Unknown opcode 234 (0xea). Undefined behavior.
 pub const OP_UNKNOWN234: u8 = 0xea;
+/// Unknown opcode 235 (0xeb). Undefined behavior.
 pub const OP_UNKNOWN235: u8 = 0xeb;
+/// Unknown opcode 236 (0xec). Undefined behavior.
 pub const OP_UNKNOWN236: u8 = 0xec;
+/// Unknown opcode 237 (0xed). Undefined behavior.
 pub const OP_UNKNOWN237: u8 = 0xed;
+/// Unknown opcode 238 (0xee). Undefined behavior.
 pub const OP_UNKNOWN238: u8 = 0xee;
+/// Unknown opcode 239 (0xef). Undefined behavior.
 pub const OP_UNKNOWN239: u8 = 0xef;
+/// Unknown opcode 240 (0xf0). Undefined behavior.
 pub const OP_UNKNOWN240: u8 = 0xf0;
+/// Unknown opcode 241 (0xf1). Undefined behavior.
 pub const OP_UNKNOWN241: u8 = 0xf1;
+/// Unknown opcode 242 (0xf2). Undefined behavior.
 pub const OP_UNKNOWN242: u8 = 0xf2;
+/// Unknown opcode 243 (0xf3). Undefined behavior.
 pub const OP_UNKNOWN243: u8 = 0xf3;
+/// Unknown opcode 244 (0xf4). Undefined behavior.
 pub const OP_UNKNOWN244: u8 = 0xf4;
+/// Unknown opcode 245 (0xf5). Undefined behavior.
 pub const OP_UNKNOWN245: u8 = 0xf5;
+/// Unknown opcode 246 (0xf6). Undefined behavior.
 pub const OP_UNKNOWN246: u8 = 0xf6;
+/// Unknown opcode 247 (0xf7). Undefined behavior.
 pub const OP_UNKNOWN247: u8 = 0xf7;
+/// Unknown opcode 248 (0xf8). Undefined behavior.
 pub const OP_UNKNOWN248: u8 = 0xf8;
+/// Unknown opcode 249 (0xf9). Undefined behavior.
 pub const OP_UNKNOWN249: u8 = 0xf9;
+/// Internal pseudo-opcode representing a small integer (used in template matching).
 pub const OP_SMALLINTEGER: u8 = 0xfa;
+/// Internal pseudo-opcode representing multiple public keys (used in template matching).
 pub const OP_PUBKEYS: u8 = 0xfb;
+/// Unknown opcode 252 (0xfc). Undefined behavior.
 pub const OP_UNKNOWN252: u8 = 0xfc;
+/// Internal pseudo-opcode representing a public key hash (used in template matching).
 pub const OP_PUBKEYHASH: u8 = 0xfd;
+/// Internal pseudo-opcode representing a public key (used in template matching).
 pub const OP_PUBKEY: u8 = 0xfe;
+/// Invalid opcode that always causes script failure.
 pub const OP_INVALIDOPCODE: u8 = 0xff;
 
 /// Convert an opcode byte value to its string representation for ASM output.

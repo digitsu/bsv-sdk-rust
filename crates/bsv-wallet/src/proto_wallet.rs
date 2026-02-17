@@ -18,12 +18,16 @@ pub struct ProtoWallet {
 
 /// How to construct a ProtoWallet.
 pub enum ProtoWalletArgs {
+    /// Construct from an existing private key.
     PrivateKey(PrivateKey),
+    /// Construct from a pre-built key deriver.
     KeyDeriver(KeyDeriver),
+    /// Construct the special "anyone" wallet (scalar = 1).
     Anyone,
 }
 
 impl ProtoWallet {
+    /// Create a new ProtoWallet from the given construction arguments.
     pub fn new(args: ProtoWalletArgs) -> Result<Self, WalletError> {
         let key_deriver = match args {
             ProtoWalletArgs::PrivateKey(pk) => KeyDeriver::new(Some(pk)),
@@ -228,6 +232,7 @@ pub struct Wallet {
 }
 
 impl Wallet {
+    /// Create a new Wallet from an optional private key. Uses "anyone" key if None.
     pub fn new(private_key: Option<PrivateKey>) -> Result<Self, WalletError> {
         let proto = match private_key {
             Some(pk) => ProtoWallet::from_private_key(pk)?,

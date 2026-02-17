@@ -1,4 +1,4 @@
-
+#![deny(missing_docs)]
 
 //! BSV Blockchain SDK - Transaction building, signing, and serialization.
 //!

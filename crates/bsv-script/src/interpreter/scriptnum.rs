@@ -14,7 +14,9 @@ use super::error::{InterpreterError, InterpreterErrorCode};
 /// A script number using big integer arithmetic for overflow safety.
 #[derive(Debug, Clone)]
 pub struct ScriptNumber {
+    /// The numeric value stored as a big integer.
     pub val: BigInt,
+    /// Whether post-genesis rules are active (affects serialization clamping).
     pub after_genesis: bool,
 }
 
@@ -140,21 +142,25 @@ impl ScriptNumber {
 
     // Arithmetic operations (mutating, return self for chaining like Go)
 
+    /// Add another script number to this one and return self for chaining.
     pub fn add(&mut self, other: &ScriptNumber) -> &mut Self {
         self.val = &self.val + &other.val;
         self
     }
 
+    /// Subtract another script number from this one and return self for chaining.
     pub fn sub(&mut self, other: &ScriptNumber) -> &mut Self {
         self.val = &self.val - &other.val;
         self
     }
 
+    /// Multiply this script number by another and return self for chaining.
     pub fn mul(&mut self, other: &ScriptNumber) -> &mut Self {
         self.val = &self.val * &other.val;
         self
     }
 
+    /// Divide this script number by another (truncated toward zero) and return self for chaining.
     pub fn div(&mut self, other: &ScriptNumber) -> &mut Self {
         // Truncation towards zero (like Go's Quo)
         use num_integer::Integer;
@@ -166,6 +172,7 @@ impl ScriptNumber {
         self
     }
 
+    /// Compute the truncated remainder of dividing by another and return self for chaining.
     pub fn modulo(&mut self, other: &ScriptNumber) -> &mut Self {
         // Go's Rem: truncated remainder
         use num_integer::Integer;
@@ -174,21 +181,25 @@ impl ScriptNumber {
         self
     }
 
+    /// Increment this number by one and return self for chaining.
     pub fn incr(&mut self) -> &mut Self {
         self.val = &self.val + BigInt::one();
         self
     }
 
+    /// Decrement this number by one and return self for chaining.
     pub fn decr(&mut self) -> &mut Self {
         self.val = &self.val - BigInt::one();
         self
     }
 
+    /// Negate this number and return self for chaining.
     pub fn neg(&mut self) -> &mut Self {
         self.val = -self.val.clone();
         self
     }
 
+    /// Replace this number with its absolute value and return self for chaining.
     pub fn abs(&mut self) -> &mut Self {
         if self.val.is_negative() {
             self.val = -self.val.clone();
@@ -196,6 +207,7 @@ impl ScriptNumber {
         self
     }
 
+    /// Set this number to the given i64 value and return self for chaining.
     pub fn set(&mut self, i: i64) -> &mut Self {
         self.val = BigInt::from(i);
         self
@@ -203,44 +215,54 @@ impl ScriptNumber {
 
     // Comparison operations
 
+    /// Return true if this number is zero.
     pub fn is_zero(&self) -> bool {
         self.val.is_zero()
     }
 
+    /// Return true if this number is less than `other`.
     pub fn less_than(&self, other: &ScriptNumber) -> bool {
         self.val < other.val
     }
 
+    /// Return true if this number is less than the given i64 value.
     pub fn less_than_int(&self, i: i64) -> bool {
         self.val < BigInt::from(i)
     }
 
+    /// Return true if this number is less than or equal to `other`.
     pub fn less_than_or_equal(&self, other: &ScriptNumber) -> bool {
         self.val <= other.val
     }
 
+    /// Return true if this number is greater than `other`.
     pub fn greater_than(&self, other: &ScriptNumber) -> bool {
         self.val > other.val
     }
 
+    /// Return true if this number is greater than the given i64 value.
     pub fn greater_than_int(&self, i: i64) -> bool {
         self.val > BigInt::from(i)
     }
 
+    /// Return true if this number is greater than or equal to `other`.
     pub fn greater_than_or_equal(&self, other: &ScriptNumber) -> bool {
         self.val >= other.val
     }
 
+    /// Return true if this number is equal to `other`.
     pub fn equal(&self, other: &ScriptNumber) -> bool {
         self.val == other.val
     }
 
+    /// Return true if this number is equal to the given i64 value.
     pub fn equal_int(&self, i: i64) -> bool {
         self.val == BigInt::from(i)
     }
 
     // Conversion
 
+    /// Convert to i32, clamping to [i32::MIN, i32::MAX] on overflow.
     pub fn to_i32(&self) -> i32 {
         match self.val.to_i64() {
             Some(v) => {
@@ -262,6 +284,7 @@ impl ScriptNumber {
         }
     }
 
+    /// Convert to i64, clamping to [i64::MIN, i64::MAX] on overflow.
     pub fn to_i64(&self) -> i64 {
         if self.greater_than_int(i64::MAX) {
             return i64::MAX;
@@ -272,6 +295,7 @@ impl ScriptNumber {
         self.val.to_i64().unwrap_or(0)
     }
 
+    /// Convert to i64, returning 0 if the value does not fit.
     pub fn to_int(&self) -> i64 {
         self.val.to_i64().unwrap_or(0)
     }

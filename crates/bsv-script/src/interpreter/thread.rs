@@ -18,26 +18,47 @@ const OP_COND_TRUE: i32 = 1;
 
 /// The execution thread for the script interpreter.
 pub struct Thread<'a> {
+    /// The main data stack used during script execution.
     pub dstack: Stack,
+    /// The alternate stack used by OP_TOALTSTACK and OP_FROMALTSTACK.
     pub astack: Stack,
+    /// Stack tracking nested IF/ELSE/ENDIF conditional execution state.
     pub else_stack: BoolStack,
+    /// Interpreter configuration with pre/post-genesis limits.
     pub cfg: Config,
+    /// The parsed scripts to execute (unlocking, locking, and optionally P2SH).
     pub scripts: Vec<ParsedScript>,
+    /// Stack of conditional execution flags for nested IF/ELSE blocks.
     pub cond_stack: Vec<i32>,
+    /// Saved copy of the data stack after the first (unlocking) script for BIP16.
     pub saved_first_stack: Vec<Vec<u8>>,
+    /// Index of the currently executing script in the scripts array.
     pub script_idx: usize,
+    /// Offset of the currently executing opcode within the current script.
     pub script_off: usize,
+    /// Offset of the most recent OP_CODESEPARATOR in the current script.
     pub last_code_sep: usize,
+    /// Running count of non-push opcodes executed (checked against max_ops).
     pub num_ops: usize,
+    /// Active script verification flags controlling interpreter behavior.
     pub flags: ScriptFlags,
+    /// Whether BIP16 (P2SH) evaluation is active for this execution.
     pub bip16: bool,
+    /// Whether post-genesis rules are active (relaxed limits, OP_RETURN behavior).
     pub after_genesis: bool,
+    /// Whether an OP_RETURN has been encountered in post-genesis mode.
     pub early_return_after_genesis: bool,
+    /// Optional transaction context for signature and locktime verification.
     pub tx_context: Option<&'a dyn TxContext>,
+    /// The transaction input index being verified.
     pub input_idx: usize,
 }
 
 impl<'a> Thread<'a> {
+    /// Create a new execution thread from unlocking and locking scripts.
+    ///
+    /// Validates script sizes, parses both scripts, and initializes the
+    /// execution environment with the appropriate flags and configuration.
     pub fn new(
         unlocking_script: &Script,
         locking_script: &Script,
@@ -155,18 +176,22 @@ impl<'a> Thread<'a> {
         Ok(thread)
     }
 
+    /// Check if a specific script verification flag is set.
     pub fn has_flag(&self, flag: ScriptFlags) -> bool {
         self.flags.has_flag(flag)
     }
 
+    /// Check if any of the given script verification flags are set.
     pub fn has_any(&self, flags: &[ScriptFlags]) -> bool {
         self.flags.has_any(flags)
     }
 
+    /// Return true if the current conditional branch is executing.
     pub fn is_branch_executing(&self) -> bool {
         self.cond_stack.is_empty() || *self.cond_stack.last().unwrap() == OP_COND_TRUE
     }
 
+    /// Return true if the given opcode should be executed in the current state.
     pub fn should_exec(&self, pop: &ParsedOpcode) -> bool {
         if !self.after_genesis {
             return true;

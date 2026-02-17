@@ -161,7 +161,7 @@ impl Script {
 
     /// Check if this is a Pay-to-Public-Key (P2PK) output script.
     ///
-    /// Pattern: <pubkey> OP_CHECKSIG (pubkey is 33 or 65 bytes with valid prefix).
+    /// Pattern: `<pubkey> OP_CHECKSIG` (pubkey is 33 or 65 bytes with valid prefix).
     ///
     /// # Returns
     /// `true` if the script matches the P2PK pattern.
@@ -211,7 +211,7 @@ impl Script {
 
     /// Check if this is a multisig output script.
     ///
-    /// Pattern: OP_N <pubkey1> <pubkey2> ... OP_M OP_CHECKMULTISIG
+    /// Pattern: `OP_N <pubkey1> <pubkey2> ... OP_M OP_CHECKMULTISIG`
     ///
     /// # Returns
     /// `true` if the script matches the multisig output pattern.

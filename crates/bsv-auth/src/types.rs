@@ -14,14 +14,19 @@ pub const AUTH_PROTOCOL_ID: &str = "auth message signature";
 /// Message types exchanged in the auth protocol.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MessageType {
+    /// Initial authentication request from the initiating peer.
     #[serde(rename = "initialRequest")]
     InitialRequest,
+    /// Response to an initial authentication request.
     #[serde(rename = "initialResponse")]
     InitialResponse,
+    /// Request for certificates from a peer.
     #[serde(rename = "certificateRequest")]
     CertificateRequest,
+    /// Response containing certificates.
     #[serde(rename = "certificateResponse")]
     CertificateResponse,
+    /// A general authenticated message.
     #[serde(rename = "general")]
     General,
 }
@@ -64,6 +69,7 @@ pub struct AuthMessage {
 }
 
 impl AuthMessage {
+    /// Create a new AuthMessage with the given type and sender identity key.
     pub fn new(message_type: MessageType, identity_key: PublicKey) -> Self {
         Self {
             version: AUTH_VERSION.to_string(),
@@ -85,19 +91,22 @@ impl AuthMessage {
 pub struct RequestedCertificateSet {
     /// Public keys of required certifiers.
     pub certifiers: Vec<PublicKey>,
-    /// Map of certificate type (base64 of [u8;32]) to required field names.
+    /// Map of certificate type (base64 of `[u8; 32]`) to required field names.
     pub certificate_types: std::collections::HashMap<[u8; 32], Vec<String>>,
 }
 
 impl RequestedCertificateSet {
+    /// Returns true if both certifiers and certificate types are empty.
     pub fn is_empty(&self) -> bool {
         self.certifiers.is_empty() && self.certificate_types.is_empty()
     }
 
+    /// Returns true if any certificate types have been specified.
     pub fn has_certificate_types(&self) -> bool {
         !self.certificate_types.is_empty()
     }
 
+    /// Returns true if any certifier public keys have been specified.
     pub fn has_certifiers(&self) -> bool {
         !self.certifiers.is_empty()
     }

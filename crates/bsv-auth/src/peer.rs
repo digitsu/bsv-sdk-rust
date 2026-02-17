@@ -18,8 +18,10 @@ use crate::utils;
 /// Callback types.
 pub type OnGeneralMessageCallback =
     Box<dyn Fn(&PublicKey, &[u8]) -> Result<(), AuthError> + Send + Sync>;
+/// Callback invoked when certificates are received from a peer.
 pub type OnCertificateReceivedCallback =
     Box<dyn Fn(&PublicKey, &[VerifiableCertificate]) -> Result<(), AuthError> + Send + Sync>;
+/// Callback invoked when a peer requests certificates.
 pub type OnCertificateRequestCallback = Box<
     dyn Fn(&PublicKey, &RequestedCertificateSet) -> Result<(), AuthError> + Send + Sync,
 >;
@@ -37,6 +39,7 @@ pub struct Peer {
     session_manager: Arc<dyn SessionManager>,
     transport: Arc<dyn Transport>,
     wallet: Arc<dyn bsv_wallet::wallet_trait::WalletInterface + Send + Sync>,
+    /// Certificate types to request from peers during handshake.
     pub certificates_to_request: RwLock<RequestedCertificateSet>,
     general_message_callbacks: RwLock<HashMap<i32, OnGeneralMessageCallback>>,
     certificate_received_callbacks: RwLock<HashMap<i32, OnCertificateReceivedCallback>>,
@@ -49,14 +52,20 @@ pub struct Peer {
 
 /// Configuration for creating a new Peer.
 pub struct PeerOptions {
+    /// Wallet used for key derivation, signing, and verification.
     pub wallet: Arc<dyn bsv_wallet::wallet_trait::WalletInterface + Send + Sync>,
+    /// Transport layer for sending and receiving messages.
     pub transport: Arc<dyn Transport>,
+    /// Certificate types to request from peers during handshake.
     pub certificates_to_request: Option<RequestedCertificateSet>,
+    /// Custom session manager (defaults to in-memory manager).
     pub session_manager: Option<Arc<dyn SessionManager>>,
+    /// Whether to persist the last interacted peer for convenience (defaults to true).
     pub auto_persist_last_session: Option<bool>,
 }
 
 impl Peer {
+    /// Create a new Peer from the given options and register it for incoming messages.
     pub fn new(cfg: PeerOptions) -> Arc<Self> {
         let session_manager = cfg
             .session_manager
@@ -125,6 +134,7 @@ impl Peer {
 
     // === Callback registration ===
 
+    /// Register a callback for incoming general messages. Returns a listener ID.
     pub fn listen_for_general_messages(&self, callback: OnGeneralMessageCallback) -> i32 {
         let id = self.next_callback_id();
         self.general_message_callbacks
@@ -134,12 +144,14 @@ impl Peer {
         id
     }
 
+    /// Remove a previously registered general message listener by ID.
     pub fn stop_listening_for_general_messages(&self, id: i32) {
         if let Ok(mut map) = self.general_message_callbacks.write() {
             map.remove(&id);
         }
     }
 
+    /// Register a callback for when certificates are received. Returns a listener ID.
     pub fn listen_for_certificates_received(&self, callback: OnCertificateReceivedCallback) -> i32 {
         let id = self.next_callback_id();
         self.certificate_received_callbacks
@@ -149,6 +161,7 @@ impl Peer {
         id
     }
 
+    /// Remove a previously registered certificate received listener by ID.
     pub fn stop_listening_for_certificates_received(&self, id: i32) {
         self.certificate_received_callbacks
             .write()
@@ -156,6 +169,7 @@ impl Peer {
             .remove(&id);
     }
 
+    /// Register a callback for when certificates are requested by a peer. Returns a listener ID.
     pub fn listen_for_certificates_requested(
         &self,
         callback: OnCertificateRequestCallback,
@@ -168,6 +182,7 @@ impl Peer {
         id
     }
 
+    /// Remove a previously registered certificate request listener by ID.
     pub fn stop_listening_for_certificates_requested(&self, id: i32) {
         self.certificate_request_callbacks
             .write()

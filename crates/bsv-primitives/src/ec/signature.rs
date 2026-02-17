@@ -68,7 +68,7 @@ impl Signature {
 
     /// Parse a DER-encoded ECDSA signature.
     ///
-    /// Expected format: 0x30 <len> 0x02 <r_len> <r> 0x02 <s_len> <s>
+    /// Expected format: `0x30 <len> 0x02 <r_len> <r> 0x02 <s_len> <s>`
     ///
     /// # Arguments
     /// * `bytes` - DER-encoded signature bytes.
@@ -162,7 +162,7 @@ impl Signature {
 
     /// Serialize the signature in DER format with low-S normalization.
     ///
-    /// Output format: 0x30 <len> 0x02 <r_len> <r_bytes> 0x02 <s_len> <s_bytes>
+    /// Output format: `0x30 <len> 0x02 <r_len> <r_bytes> 0x02 <s_len> <s_bytes>`
     /// The S value is normalized to the lower half of the curve order per BIP-0062.
     ///
     /// # Returns

@@ -9,14 +9,18 @@ use crate::error::SpvError;
 /// Result of a successful broadcast.
 #[derive(Debug, Clone)]
 pub struct BroadcastSuccess {
+    /// The transaction ID returned by the network.
     pub txid: String,
+    /// Human-readable status message from the broadcaster.
     pub message: String,
 }
 
 /// Result of a failed broadcast.
 #[derive(Debug, Clone)]
 pub struct BroadcastFailure {
+    /// Machine-readable error code from the broadcaster.
     pub code: String,
+    /// Human-readable description of the failure.
     pub description: String,
 }
 

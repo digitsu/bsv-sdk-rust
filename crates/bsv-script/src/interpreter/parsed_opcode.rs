@@ -7,23 +7,29 @@ use super::error::{InterpreterError, InterpreterErrorCode};
 /// A parsed opcode with its data payload.
 #[derive(Debug, Clone)]
 pub struct ParsedOpcode {
+    /// The opcode byte value.
     pub opcode: u8,
+    /// The data payload associated with push opcodes (empty for non-push opcodes).
     pub data: Vec<u8>,
 }
 
 impl ParsedOpcode {
+    /// Return the human-readable name of this opcode.
     pub fn name(&self) -> &'static str {
         crate::opcodes::opcode_to_string(self.opcode)
     }
 
+    /// Return true if this opcode is disabled (OP_2MUL, OP_2DIV).
     pub fn is_disabled(&self) -> bool {
         matches!(self.opcode, OP_2MUL | OP_2DIV)
     }
 
+    /// Return true if this opcode is always illegal (OP_VERIF, OP_VERNOTIF).
     pub fn always_illegal(&self) -> bool {
         matches!(self.opcode, OP_VERIF | OP_VERNOTIF)
     }
 
+    /// Return true if this opcode is a conditional flow control opcode.
     pub fn is_conditional(&self) -> bool {
         matches!(
             self.opcode,
@@ -31,6 +37,7 @@ impl ParsedOpcode {
         )
     }
 
+    /// Return true if this opcode requires a transaction context to execute.
     pub fn requires_tx(&self) -> bool {
         matches!(
             self.opcode,

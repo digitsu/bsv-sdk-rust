@@ -240,7 +240,7 @@ impl PrivateKey {
     /// Computes an ECDH shared secret with the provided public key, then uses
     /// HMAC-SHA256 with the invoice number to derive a new private key scalar.
     ///
-    /// See BRC-42 spec: https://github.com/bitcoin-sv/BRCs/blob/master/key-derivation/0042.md
+    /// See BRC-42 spec: <https://github.com/bitcoin-sv/BRCs/blob/master/key-derivation/0042.md>
     ///
     /// # Arguments
     /// * `pub_key` - The counterparty's public key.

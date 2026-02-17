@@ -13,11 +13,15 @@ use crate::merkle_tree_parent::merkle_tree_parent;
 /// A single element in a Merkle path level.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PathElement {
+    /// Position offset within this tree level.
     pub offset: u64,
+    /// Hash value at this position (absent when `duplicate` is set).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hash: Option<Hash>,
+    /// When `Some(true)`, indicates this element is the target transaction ID.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub txid: Option<bool>,
+    /// When `Some(true)`, the sibling hash is a duplicate of its pair (odd leaf count).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duplicate: Option<bool>,
 }
@@ -27,7 +31,9 @@ pub struct PathElement {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MerklePath {
+    /// Block height at which the transaction was mined.
     pub block_height: u32,
+    /// Path levels from leaf (index 0) to root, each containing one or more elements.
     pub path: Vec<Vec<PathElement>>,
 }
 

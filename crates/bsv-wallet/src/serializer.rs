@@ -23,8 +23,11 @@ const IDENTITY_KEY_FLAG: u8 = 1;
 /// A request frame in the wallet wire protocol.
 #[derive(Debug, Clone)]
 pub struct RequestFrame {
+    /// The method call identifier byte.
     pub call: u8,
+    /// The originator application identifier.
     pub originator: String,
+    /// The serialized method parameters.
     pub params: Vec<u8>,
 }
 
@@ -238,13 +241,19 @@ fn decode_privileged_params(r: &mut BsvReader) -> Result<(Option<bool>, String),
 /// Shared key-related parameters (protocol, keyID, counterparty, privileged).
 #[derive(Debug, Clone)]
 pub struct KeyRelatedParams {
+    /// The protocol under which the key is derived.
     pub protocol_id: Protocol,
+    /// The application-specific key identifier.
     pub key_id: String,
+    /// The counterparty for the operation.
     pub counterparty: Counterparty,
+    /// Whether this is a privileged operation.
     pub privileged: Option<bool>,
+    /// Human-readable reason for privileged access.
     pub privileged_reason: String,
 }
 
+/// Encode key-related parameters to wire format bytes.
 pub fn encode_key_related_params(params: &KeyRelatedParams) -> Result<Vec<u8>, WalletError> {
     let mut w = BsvWriter::new();
     encode_protocol(&mut w, &params.protocol_id);
@@ -254,6 +263,7 @@ pub fn encode_key_related_params(params: &KeyRelatedParams) -> Result<Vec<u8>, W
     Ok(w.into_bytes())
 }
 
+/// Decode key-related parameters from wire format bytes.
 pub fn decode_key_related_params(r: &mut BsvReader) -> Result<KeyRelatedParams, WalletError> {
     let protocol_id = decode_protocol(r)?;
     let key_id = read_string(r)?;
@@ -270,6 +280,7 @@ pub fn decode_key_related_params(r: &mut BsvReader) -> Result<KeyRelatedParams, 
 
 // === Encrypt/Decrypt ===
 
+/// Serialize encrypt arguments to wire format bytes.
 pub fn serialize_encrypt_args(args: &EncryptArgs) -> Result<Vec<u8>, WalletError> {
     let mut w = BsvWriter::new();
     let params = encode_key_related_params(&KeyRelatedParams {
@@ -286,6 +297,7 @@ pub fn serialize_encrypt_args(args: &EncryptArgs) -> Result<Vec<u8>, WalletError
     Ok(w.into_bytes())
 }
 
+/// Deserialize encrypt arguments from wire format bytes.
 pub fn deserialize_encrypt_args(data: &[u8]) -> Result<EncryptArgs, WalletError> {
     let mut r = BsvReader::new(data);
     let params = decode_key_related_params(&mut r)?;
@@ -306,14 +318,17 @@ pub fn deserialize_encrypt_args(data: &[u8]) -> Result<EncryptArgs, WalletError>
     })
 }
 
+/// Serialize an encrypt result to wire format bytes.
 pub fn serialize_encrypt_result(result: &EncryptResult) -> Vec<u8> {
     result.ciphertext.clone()
 }
 
+/// Deserialize an encrypt result from wire format bytes.
 pub fn deserialize_encrypt_result(data: &[u8]) -> EncryptResult {
     EncryptResult { ciphertext: data.to_vec() }
 }
 
+/// Serialize decrypt arguments to wire format bytes.
 pub fn serialize_decrypt_args(args: &DecryptArgs) -> Result<Vec<u8>, WalletError> {
     let mut w = BsvWriter::new();
     let params = encode_key_related_params(&KeyRelatedParams {
@@ -330,6 +345,7 @@ pub fn serialize_decrypt_args(args: &DecryptArgs) -> Result<Vec<u8>, WalletError
     Ok(w.into_bytes())
 }
 
+/// Deserialize decrypt arguments from wire format bytes.
 pub fn deserialize_decrypt_args(data: &[u8]) -> Result<DecryptArgs, WalletError> {
     let mut r = BsvReader::new(data);
     let params = decode_key_related_params(&mut r)?;
@@ -350,16 +366,19 @@ pub fn deserialize_decrypt_args(data: &[u8]) -> Result<DecryptArgs, WalletError>
     })
 }
 
+/// Serialize a decrypt result to wire format bytes.
 pub fn serialize_decrypt_result(result: &DecryptResult) -> Vec<u8> {
     result.plaintext.clone()
 }
 
+/// Deserialize a decrypt result from wire format bytes.
 pub fn deserialize_decrypt_result(data: &[u8]) -> DecryptResult {
     DecryptResult { plaintext: data.to_vec() }
 }
 
 // === GetPublicKey ===
 
+/// Serialize get-public-key arguments to wire format bytes.
 pub fn serialize_get_public_key_args(args: &GetPublicKeyArgs) -> Result<Vec<u8>, WalletError> {
     let mut w = BsvWriter::new();
     if args.identity_key {
@@ -381,6 +400,7 @@ pub fn serialize_get_public_key_args(args: &GetPublicKeyArgs) -> Result<Vec<u8>,
     Ok(w.into_bytes())
 }
 
+/// Deserialize get-public-key arguments from wire format bytes.
 pub fn deserialize_get_public_key_args(data: &[u8]) -> Result<GetPublicKeyArgs, WalletError> {
     let mut r = BsvReader::new(data);
     let ik_flag = r.read_u8().map_err(|e| WalletError::General(format!("read ik flag: {}", e)))?;
@@ -420,10 +440,12 @@ pub fn deserialize_get_public_key_args(data: &[u8]) -> Result<GetPublicKeyArgs, 
     }
 }
 
+/// Serialize a get-public-key result to wire format bytes.
 pub fn serialize_get_public_key_result(result: &GetPublicKeyResult) -> Vec<u8> {
     result.public_key.to_compressed().to_vec()
 }
 
+/// Deserialize a get-public-key result from wire format bytes.
 pub fn deserialize_get_public_key_result(data: &[u8]) -> Result<GetPublicKeyResult, WalletError> {
     let pubkey = PublicKey::from_bytes(data)
         .map_err(|e| WalletError::General(format!("invalid pubkey: {}", e)))?;
@@ -432,6 +454,7 @@ pub fn deserialize_get_public_key_result(data: &[u8]) -> Result<GetPublicKeyResu
 
 // === CreateSignature ===
 
+/// Serialize create-signature arguments to wire format bytes.
 pub fn serialize_create_signature_args(args: &CreateSignatureArgs) -> Result<Vec<u8>, WalletError> {
     let mut w = BsvWriter::new();
     let params = encode_key_related_params(&KeyRelatedParams {
@@ -456,6 +479,7 @@ pub fn serialize_create_signature_args(args: &CreateSignatureArgs) -> Result<Vec
     Ok(w.into_bytes())
 }
 
+/// Deserialize create-signature arguments from wire format bytes.
 pub fn deserialize_create_signature_args(data: &[u8]) -> Result<CreateSignatureArgs, WalletError> {
     let mut r = BsvReader::new(data);
     let params = decode_key_related_params(&mut r)?;
@@ -490,10 +514,12 @@ pub fn deserialize_create_signature_args(data: &[u8]) -> Result<CreateSignatureA
     })
 }
 
+/// Serialize a create-signature result to DER-encoded bytes.
 pub fn serialize_create_signature_result(result: &CreateSignatureResult) -> Vec<u8> {
     result.signature.to_der()
 }
 
+/// Deserialize a create-signature result from DER-encoded bytes.
 pub fn deserialize_create_signature_result(data: &[u8]) -> Result<CreateSignatureResult, WalletError> {
     let sig = Signature::from_der(data)
         .map_err(|e| WalletError::General(format!("invalid signature: {}", e)))?;
@@ -502,6 +528,7 @@ pub fn deserialize_create_signature_result(data: &[u8]) -> Result<CreateSignatur
 
 // === HMAC ===
 
+/// Serialize create-HMAC arguments to wire format bytes.
 pub fn serialize_create_hmac_args(args: &CreateHmacArgs) -> Result<Vec<u8>, WalletError> {
     let mut w = BsvWriter::new();
     let params = encode_key_related_params(&KeyRelatedParams {
@@ -518,6 +545,7 @@ pub fn serialize_create_hmac_args(args: &CreateHmacArgs) -> Result<Vec<u8>, Wall
     Ok(w.into_bytes())
 }
 
+/// Deserialize create-HMAC arguments from wire format bytes.
 pub fn deserialize_create_hmac_args(data: &[u8]) -> Result<CreateHmacArgs, WalletError> {
     let mut r = BsvReader::new(data);
     let params = decode_key_related_params(&mut r)?;
@@ -538,10 +566,12 @@ pub fn deserialize_create_hmac_args(data: &[u8]) -> Result<CreateHmacArgs, Walle
     })
 }
 
+/// Serialize a create-HMAC result to raw 32-byte output.
 pub fn serialize_create_hmac_result(result: &CreateHmacResult) -> Vec<u8> {
     result.hmac.to_vec()
 }
 
+/// Deserialize a create-HMAC result from raw 32-byte input.
 pub fn deserialize_create_hmac_result(data: &[u8]) -> Result<CreateHmacResult, WalletError> {
     if data.len() < 32 {
         return Err(WalletError::General(format!("HMAC too short: expected 32, got {}", data.len())));

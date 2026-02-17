@@ -6,7 +6,7 @@
 //! # Architecture
 //!
 //! The interpreter does not depend on the transaction crate directly to avoid
-//! circular dependencies. Instead, callers provide a [`TxContext`] trait
+//! circular dependencies. Instead, callers provide a [`TxContext`](crate::interpreter::TxContext) trait
 //! implementation that handles signature hash computation and verification.
 //!
 //! # Example
@@ -24,12 +24,19 @@
 //! )?;
 //! ```
 
+/// Interpreter configuration with pre/post-genesis limits.
 pub mod config;
+/// Interpreter error types and error codes.
 pub mod error;
+/// Script verification flags (bitmask).
 pub mod flags;
+/// Parsed opcode representation and script parser.
 pub mod parsed_opcode;
+/// Script number arithmetic with Bitcoin consensus rules.
 pub mod scriptnum;
+/// Script execution stack.
 pub mod stack;
+/// Script execution thread — the core interpreter engine.
 pub mod thread;
 mod ops_arithmetic;
 mod ops_crypto;
@@ -85,6 +92,7 @@ pub trait TxContext {
 pub struct Engine;
 
 impl Engine {
+    /// Create a new script execution engine instance.
     pub fn new() -> Self {
         Engine
     }
